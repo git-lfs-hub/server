@@ -3,7 +3,7 @@ import {
   createLockRequestSchema,
   lockVerifyRequestSchema,
   unlockRequestSchema,
-} from "./schema.zod";
+} from "./api-schema";
 
 type AppEnv = {
   Bindings: CloudflareBindings;

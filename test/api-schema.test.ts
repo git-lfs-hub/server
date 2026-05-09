@@ -13,7 +13,7 @@ import {
   unlockRequestSchema,
   unlockResponseSchema,
   verifyRequestSchema,
-} from "../src/schema.zod";
+} from "../src/api-schema";
 
 // ---------------------------------------------------------------------------
 // Fixtures

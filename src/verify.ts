@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { verifyRequestSchema } from "./schema.zod";
+import { verifyRequestSchema } from "./api-schema";
 
 type AppEnv = {
   Bindings: CloudflareBindings;

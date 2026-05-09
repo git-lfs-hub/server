@@ -13,7 +13,7 @@ import {
 // D1 mock backed by bun:sqlite
 // ---------------------------------------------------------------------------
 
-const SCHEMA = readFileSync("sql/schema.d1.sql", "utf8");
+const SCHEMA = readFileSync("sql/locks.sql", "utf8");
 
 type SeedLock = { id: string; owner: string; path: string; repo: string; locked_at: string };
 

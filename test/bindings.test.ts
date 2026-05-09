@@ -2,7 +2,7 @@ import { describe, test, expect, beforeAll, afterAll, beforeEach } from "bun:tes
 import { Miniflare } from "miniflare";
 import { readFileSync } from "fs";
 
-const SCHEMA = readFileSync(new URL("../sql/schema.d1.sql", import.meta.url), "utf8");
+const SCHEMA = readFileSync(new URL("../sql/locks.sql", import.meta.url), "utf8");
 
 // Minimal worker that exposes each binding via simple HTTP routes.
 // Routes: /r2/<op>?key=K, /d1/<op>, /env

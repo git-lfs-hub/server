@@ -1,5 +1,5 @@
 import type { Context } from "hono";
-import { batchRequestSchema } from "./schema.zod";
+import { batchRequestSchema } from "./api-schema";
 import { presignUpload, presignDownload } from "./r2";
 
 type AppEnv = {
