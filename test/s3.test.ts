@@ -1,16 +1,18 @@
-import { describe, test, expect } from "bun:test";
-import { presignDownload, presignUpload } from "../src/s3";
+import { describe, test, expect, spyOn, beforeEach, afterEach } from "bun:test";
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { S3Bucket } from "../src/s3";
 
 const ENV = {
   S3_ENDPOINT:          "https://test-account.r2.cloudflarestorage.com",
   S3_ACCESS_KEY_ID:     "test-key-id",
   S3_SECRET_ACCESS_KEY: "test-secret",
-  S3_BUCKET_NAME:          "lfs-objects",
+  S3_BUCKET_NAME:       "lfs-objects",
+  S3_PRESIGN_TTL:       "3600",
 };
 
 const KEY = "alice/repo/abc123def456";
+const VERIFY_HREF = "https://lfs.example.com/alice/repo/objects/verify";
 
-// Parse a presigned URL into its structural parts.
 function parse(raw: string) {
   const url = new URL(raw);
   return {
@@ -23,94 +25,87 @@ function parse(raw: string) {
 
 // ---------------------------------------------------------------------------
 
-describe("presignUpload", () => {
-  test("returns an HTTPS URL", async () => {
-    const url = await presignUpload(ENV, KEY);
-    expect(parse(url).protocol).toBe("https:");
+describe("presignCommand", () => {
+  const bucket = new S3Bucket(ENV);
+  const cmd = new PutObjectCommand({ Bucket: ENV.S3_BUCKET_NAME, Key: KEY });
+
+  test("href is an HTTPS URL", async () => {
+    expect(parse(await bucket.presignCommand(cmd)).protocol).toBe("https:");
   });
 
-  test("targets the R2 endpoint for the configured account", async () => {
-    const url = await presignUpload(ENV, KEY);
-    expect(parse(url).host).toBe("test-account.r2.cloudflarestorage.com");
+  test("href targets the configured S3 endpoint", async () => {
+    expect(parse(await bucket.presignCommand(cmd)).host).toBe("test-account.r2.cloudflarestorage.com");
   });
 
-  test("path contains bucket name then key", async () => {
-    const url = await presignUpload(ENV, KEY);
-    expect(parse(url).pathname).toBe("/lfs-objects/alice/repo/abc123def456");
+  test("href path contains bucket name then key", async () => {
+    expect(parse(await bucket.presignCommand(cmd)).pathname).toBe("/lfs-objects/alice/repo/abc123def456");
   });
 
-  test("uses AWS Signature Version 4", async () => {
-    const url = await presignUpload(ENV, KEY);
-    expect(parse(url).params.get("X-Amz-Algorithm")).toBe("AWS4-HMAC-SHA256");
+  test("href uses AWS Signature Version 4", async () => {
+    expect(parse(await bucket.presignCommand(cmd)).params.get("X-Amz-Algorithm")).toBe("AWS4-HMAC-SHA256");
   });
 
-  test("X-Amz-Expires matches the default TTL (3600)", async () => {
-    const url = await presignUpload(ENV, KEY);
-    expect(parse(url).params.get("X-Amz-Expires")).toBe("3600");
+  test("href X-Amz-Expires matches S3_PRESIGN_TTL", async () => {
+    expect(parse(await bucket.presignCommand(cmd)).params.get("X-Amz-Expires")).toBe(ENV.S3_PRESIGN_TTL);
   });
 
-  test("respects a custom TTL", async () => {
-    const url = await presignUpload(ENV, KEY, 900);
-    expect(parse(url).params.get("X-Amz-Expires")).toBe("900");
+  test("href X-Amz-Expires reflects a different S3_PRESIGN_TTL", async () => {
+    const env = { ...ENV, S3_PRESIGN_TTL: "900" };
+    const href = await new S3Bucket(env).presignCommand(new PutObjectCommand({ Bucket: env.S3_BUCKET_NAME, Key: KEY }));
+    expect(parse(href).params.get("X-Amz-Expires")).toBe("900");
   });
 
-  test("credential contains the configured access key ID", async () => {
-    const url = await presignUpload(ENV, KEY);
-    const credential = parse(url).params.get("X-Amz-Credential") ?? "";
+  test("href credential contains the configured access key ID", async () => {
+    const credential = parse(await bucket.presignCommand(cmd)).params.get("X-Amz-Credential") ?? "";
     expect(credential).toMatch(/^test-key-id\//);
+  });
+});
+
+// ---------------------------------------------------------------------------
+
+describe("presignUpload", () => {
+  test("verify.href is the passed verifyHref", async () => {
+    const { actions: { verify } } = await new S3Bucket(ENV).presignUpload(KEY, VERIFY_HREF) as { actions: { verify: { href: string } } };
+    expect(verify.href).toBe(VERIFY_HREF);
   });
 });
 
 // ---------------------------------------------------------------------------
 
 describe("presignDownload", () => {
-  test("returns an HTTPS URL", async () => {
-    const url = await presignDownload(ENV, KEY);
-    expect(parse(url).protocol).toBe("https:");
+  let spy: ReturnType<typeof spyOn>;
+
+  beforeEach(() => {
+    spy = spyOn(S3Client.prototype, "send").mockResolvedValue({ ContentLength: 1 } as any);
   });
 
-  test("targets the R2 endpoint for the configured account", async () => {
-    const url = await presignDownload(ENV, KEY);
-    expect(parse(url).host).toBe("test-account.r2.cloudflarestorage.com");
+  afterEach(() => {
+    spy.mockRestore();
   });
 
-  test("path contains bucket name then key", async () => {
-    const url = await presignDownload(ENV, KEY);
-    expect(parse(url).pathname).toBe("/lfs-objects/alice/repo/abc123def456");
+  test("returns error object when the object does not exist", async () => {
+    spy.mockRejectedValue(new Error("Not Found"));
+    const result = await new S3Bucket(ENV).presignDownload(KEY);
+    expect(result).toMatchObject({ error: { code: 404 } });
   });
 
-  test("uses AWS Signature Version 4", async () => {
-    const url = await presignDownload(ENV, KEY);
-    expect(parse(url).params.get("X-Amz-Algorithm")).toBe("AWS4-HMAC-SHA256");
+  test("returns download action when the object exists", async () => {
+    const result = await new S3Bucket(ENV).presignDownload(KEY);
+    expect(result).toMatchObject({ actions: { download: { href: expect.any(String) } } });
   });
 
-  test("X-Amz-Expires matches the default TTL (3600)", async () => {
-    const url = await presignDownload(ENV, KEY);
-    expect(parse(url).params.get("X-Amz-Expires")).toBe("3600");
+  test("download href is an HTTPS URL", async () => {
+    const result = await new S3Bucket(ENV).presignDownload(KEY) as { actions: { download: { href: string } } };
+    expect(parse(result.actions.download.href).protocol).toBe("https:");
   });
 
-  test("respects a custom TTL", async () => {
-    const url = await presignDownload(ENV, KEY, 7200);
-    expect(parse(url).params.get("X-Amz-Expires")).toBe("7200");
+  test("download href targets the configured S3 endpoint", async () => {
+    const result = await new S3Bucket(ENV).presignDownload(KEY) as { actions: { download: { href: string } } };
+    expect(parse(result.actions.download.href).host).toBe("test-account.r2.cloudflarestorage.com");
   });
 
-  test("credential contains the configured access key ID", async () => {
-    const url = await presignDownload(ENV, KEY);
-    const credential = parse(url).params.get("X-Amz-Credential") ?? "";
-    expect(credential).toMatch(/^test-key-id\//);
-  });
-});
-
-// ---------------------------------------------------------------------------
-
-describe("presignUpload vs presignDownload", () => {
-  test("produce different signatures for the same key", async () => {
-    const [up, down] = await Promise.all([
-      presignUpload(ENV, KEY),
-      presignDownload(ENV, KEY),
-    ]);
-    expect(parse(up).params.get("X-Amz-Signature")).not.toBe(
-      parse(down).params.get("X-Amz-Signature"),
-    );
+  test("download href path contains bucket name then key", async () => {
+    const result = await new S3Bucket(ENV).presignDownload(KEY) as { actions: { download: { href: string } } };
+    expect(parse(result.actions.download.href).pathname).toBe("/lfs-objects/alice/repo/abc123def456");
   });
 });

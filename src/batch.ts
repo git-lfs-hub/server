@@ -1,10 +1,11 @@
 import type { Context } from "hono";
 import { batchRequestSchema } from "./api-schema";
-import { presignUpload, presignDownload } from "./s3";
+import type { S3Bucket } from "./s3";
+import assert from "assert";
 
 type AppEnv = {
   Bindings: CloudflareBindings;
-  Variables: { user: string };
+  Variables: { user: string; s3bucket: S3Bucket };
 };
 
 export async function batchHandler(c: Context<AppEnv>): Promise<Response> {
@@ -20,44 +21,27 @@ export async function batchHandler(c: Context<AppEnv>): Promise<Response> {
   const origin = new URL(c.req.url).origin;
   const { operation, objects } = body;
 
+  const bucket = c.get("s3bucket");
   const results = await Promise.all(
     objects.map(async (obj) => {
       const key = `${owner}/${repo}/${obj.oid}`;
-
       if (operation === "upload") {
-        const exists = await c.env.LFS_BUCKET.head(key);
-        if (exists) return { oid: obj.oid, size: obj.size };
-        const [uploadHref, verifyHref] = await Promise.all([
-          presignUpload(c.env, key),
-          Promise.resolve(`${origin}/${owner}/${repo}/objects/verify`),
-        ]);
+        const verifyHref = `${origin}/${owner}/${repo}/objects/verify`;
         return {
           oid: obj.oid,
           size: obj.size,
-          actions: {
-            upload: { href: uploadHref },
-            verify: { href: verifyHref },
-          },
+          ...(await bucket.presignUpload(key, verifyHref)),
         };
       } else {
-        // assert(operation === "download");
-        const exists = await c.env.LFS_BUCKET.head(key);
-        if (!exists) {
-          return {
-            oid: obj.oid,
-            size: obj.size,
-            error: { code: 404, message: "Object not found" },
-          };
-        }
-        const downloadHref = await presignDownload(c.env, key);
+        assert(operation === "download");
         return {
           oid: obj.oid,
           size: obj.size,
-          actions: { download: { href: downloadHref } },
+          ...(await bucket.presignDownload(key)),
         };
       }
     }),
   );
 
-  return c.json({ transfer: "basic", objects: results, hash_algo: "sha256" });
+  return c.json({ transfer: "basic", hash_algo: "sha256", objects: results });
 }

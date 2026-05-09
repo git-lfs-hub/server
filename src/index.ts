@@ -2,11 +2,20 @@ import { Hono } from "hono";
 import { authMiddleware } from "./auth";
 import { batchHandler } from "./batch";
 import { verifyHandler } from "./verify";
-import { createLockHandler, listLocksHandler, verifyLocksHandler, unlockHandler } from "./locks";
+import {
+  createLockHandler,
+  listLocksHandler,
+  verifyLocksHandler,
+  unlockHandler,
+} from "./locks";
+import { S3Bucket } from "./s3";
 
 const LFS_CONTENT_TYPE = "application/vnd.git-lfs+json";
 
-type AppEnv = { Bindings: CloudflareBindings; Variables: { user: string } };
+type AppEnv = {
+  Bindings: CloudflareBindings;
+  Variables: { user: string; s3bucket: S3Bucket };
+};
 
 const app = new Hono<AppEnv>();
 
@@ -26,6 +35,12 @@ app.use("/:owner/:repo/*", async (c, next) => {
 
 // Authenticate all LFS routes.
 app.use("/:owner/:repo/*", authMiddleware);
+
+// Inject S3Bucket instance.
+app.use("/:owner/:repo/objects/*", (c, next) => {
+  c.set("s3bucket", S3Bucket.getSingleton(c.env));
+  return next();
+});
 
 // Routes
 app.post("/:owner/:repo/objects/batch", batchHandler);
