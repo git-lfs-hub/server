@@ -1,0 +1,200 @@
+import { mock, describe, test, expect, beforeEach } from "bun:test";
+import { Hono } from "hono";
+
+// ---------------------------------------------------------------------------
+// Octokit mock — must be set up before auth.ts is imported
+// ---------------------------------------------------------------------------
+
+let mockAuthenticated = true;
+let mockHasRepoAccess = true;
+let mockGithubLogin = "alice";
+
+mock.module("@octokit/rest", () => ({
+  Octokit: class {
+    rest = {
+      users: {
+        getAuthenticated: async () => {
+          if (!mockAuthenticated) throw Object.assign(new Error("Unauthorized"), { status: 401 });
+          return { data: { login: mockGithubLogin } };
+        },
+      },
+      repos: {
+        get: async () => {
+          if (!mockHasRepoAccess) throw Object.assign(new Error("Not found"), { status: 404 });
+          return { data: {} };
+        },
+      },
+    };
+  },
+}));
+
+import { authMiddleware, extractToken } from "../src/auth";
+
+// ---------------------------------------------------------------------------
+// extractToken — pure function tests, no app needed
+// ---------------------------------------------------------------------------
+
+describe("extractToken", () => {
+  describe("Basic scheme", () => {
+    test("returns username and password from valid Basic credentials", () => {
+      const result = extractToken(`Basic ${btoa("alice:secret")}`);
+      expect(result).toEqual({ username: "alice", token: "secret" });
+    });
+
+    test("splits on the first colon only (password may contain colons)", () => {
+      const result = extractToken(`Basic ${btoa("alice:pass:with:colons")}`);
+      expect(result).toEqual({ username: "alice", token: "pass:with:colons" });
+    });
+
+    test("allows an empty username", () => {
+      const result = extractToken(`Basic ${btoa(":token-only")}`);
+      expect(result).toEqual({ username: "", token: "token-only" });
+    });
+
+    test("returns null for malformed base64", () => {
+      expect(extractToken("Basic !!!not-base64!!!")).toBeNull();
+    });
+
+    test("returns null when decoded value has no colon", () => {
+      expect(extractToken(`Basic ${btoa("nocohereseparator")}`)).toBeNull();
+    });
+
+    test("scheme matching is case-insensitive", () => {
+      expect(extractToken(`BASIC ${btoa("alice:secret")}`)).toEqual({
+        username: "alice",
+        token: "secret",
+      });
+    });
+  });
+
+  describe("non-Basic schemes", () => {
+    test("RemoteAuth: treats raw credential as token, username empty", () => {
+      expect(extractToken("RemoteAuth my-opaque-token")).toEqual({
+        username: "",
+        token: "my-opaque-token",
+      });
+    });
+
+    test("Bearer: treats raw credential as token", () => {
+      expect(extractToken("Bearer eyJhbGciOiJIUzI1NiJ9")).toEqual({
+        username: "",
+        token: "eyJhbGciOiJIUzI1NiJ9",
+      });
+    });
+  });
+
+  test("returns null when no space separates scheme from credentials", () => {
+    expect(extractToken("BasicYWxpY2U6c2VjcmV0")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// authMiddleware — HTTP-level tests via Hono's app.request()
+// ---------------------------------------------------------------------------
+
+type AppEnv = { Bindings: CloudflareBindings; Variables: { user: string } };
+
+function makeApp() {
+  const app = new Hono<AppEnv>();
+  app.use("/:owner/:repo/*", authMiddleware);
+  app.get("/:owner/:repo/", (c) => c.json({ ok: true, user: c.get("user") }));
+  return app;
+}
+
+const app = makeApp();
+const REPO_URL = "http://w/alice/repo/";
+
+function basic(username: string, password: string) {
+  return `Basic ${btoa(`${username}:${password}`)}`;
+}
+
+describe("authMiddleware", () => {
+  beforeEach(() => {
+    mockAuthenticated = true;
+    mockHasRepoAccess = true;
+    mockGithubLogin = "alice";
+  });
+
+  describe("401 responses", () => {
+    test("rejects requests with no Authorization header", async () => {
+      const res = await app.request(REPO_URL);
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects malformed Basic credentials", async () => {
+      const res = await app.request(REPO_URL, {
+        headers: { Authorization: "Basic !!!bad-base64!!!" },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects Basic with no colon in decoded value", async () => {
+      const res = await app.request(REPO_URL, {
+        headers: { Authorization: `Basic ${btoa("nocolon")}` },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects when GitHub says token is invalid", async () => {
+      mockAuthenticated = false;
+      const res = await app.request(REPO_URL, {
+        headers: { Authorization: basic("alice", "bad-token") },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects when GitHub says no read access to repo", async () => {
+      mockHasRepoAccess = false;
+      const res = await app.request(REPO_URL, {
+        headers: { Authorization: basic("alice", "valid-token") },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("401 carries LFS-Authenticate header", async () => {
+      const res = await app.request(REPO_URL);
+      expect(res.headers.get("LFS-Authenticate")).toBe('Basic realm="Git LFS"');
+    });
+
+    test("401 body contains credentials-needed message", async () => {
+      const res = await app.request(REPO_URL);
+      const body = await res.json() as any;
+      expect(body.message).toBe("Credentials needed");
+    });
+  });
+
+  describe("successful authentication", () => {
+    test("accepts request when GitHub confirms token and repo access", async () => {
+      const res = await app.request(REPO_URL, {
+        headers: { Authorization: basic("alice", "ghp_valid_token") },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("sets user variable to the GitHub login", async () => {
+      mockGithubLogin = "gh-alice";
+      const res = await app.request(REPO_URL, {
+        headers: { Authorization: basic("alice", "ghp_valid_token") },
+      });
+      const body = await res.json() as any;
+      expect(body.user).toBe("gh-alice");
+    });
+
+    test("accepts RemoteAuth scheme when GitHub confirms access", async () => {
+      const res = await app.request(REPO_URL, {
+        headers: { Authorization: "RemoteAuth ghp_some_token" },
+      });
+      expect(res.status).toBe(200);
+    });
+
+    test("strips .git from repo name before checking GitHub", async () => {
+      // If .git were not stripped, GitHub would return 404 for "repo.git" and
+      // we'd get 401. Since GitHub confirms access (mockHasRepoAccess = true),
+      // a 200 here proves the middleware stripped the suffix.
+      const res = await app.request("http://w/alice/repo.git/", {
+        headers: { Authorization: basic("alice", "ghp_valid_token") },
+      });
+      expect(res.status).toBe(200);
+    });
+  });
+});
