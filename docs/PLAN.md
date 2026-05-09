@@ -429,9 +429,275 @@ Each step is independently testable with `bun run dev` + `curl`.
 
 ---
 
-## Test Cases (Manual with `curl`)
+## Integration Testing
 
-Test scenarios are derived directly from `lfs-test-server/server_test.go`.
+Automated integration tests run locally against a
+[Miniflare](https://miniflare.dev/) instance — no real Cloudflare account,
+R2 bucket, or D1 database required.
+
+### Stack
+
+| Layer | Tool |
+|-------|------|
+| Test runner | Vitest (Node environment) |
+| Worker runtime | Miniflare (`../workers-sdk/packages/miniflare`) |
+| R2 simulation | Miniflare in-memory R2 |
+| D1 simulation | Miniflare in-memory D1 |
+
+### Installation
+
+```bash
+bun add -D vitest
+bun add -D miniflare
+```
+
+Add scripts to `package.json`:
+
+```jsonc
+"build": "wrangler deploy --dry-run --outdir dist",
+"test":  "bun run build && vitest run"
+```
+
+Miniflare needs a compiled bundle, not raw TypeScript — the build step runs
+wrangler's bundler (esbuild) and writes the output to `dist/`. The `--dry-run`
+flag skips the actual upload.
+
+### File Structure
+
+```
+test/
+  helpers.ts      -- Miniflare factory + shared fixtures
+  auth.test.ts    -- auth middleware (401, 403 paths)
+  batch.test.ts   -- POST /objects/batch (upload + download flows)
+  verify.test.ts  -- POST /objects/verify
+  locks.test.ts   -- all four /locks endpoints + pagination
+vitest.config.ts
+```
+
+### Miniflare Configuration (`test/helpers.ts`)
+
+```typescript
+import { readFileSync } from "fs";
+import { Miniflare } from "miniflare";
+
+export const TEST_TOKEN = "test-auth-token";
+export const ALICE = `Basic ${btoa(`alice:${TEST_TOKEN}`)}`;
+export const BOB   = `Basic ${btoa(`bob:${TEST_TOKEN}`)}`;
+export const LFS   = {
+  "Accept":       "application/vnd.git-lfs+json",
+  "Content-Type": "application/vnd.git-lfs+json",
+};
+
+const SCHEMA = readFileSync("schema.sql", "utf8");
+
+export async function createMiniflare() {
+  const mf = new Miniflare({
+    scriptPath: "dist/index.js",
+    modules: true,
+    compatibilityDate: "2026-05-08",
+    compatibilityFlags: ["nodejs_compat"],
+    r2Buckets:    ["LFS_BUCKET"],
+    d1Databases:  ["DB"],
+    bindings: {
+      AUTH_TOKEN:          TEST_TOKEN,
+      ACCOUNT_ID:          "test-account",
+      R2_ACCESS_KEY_ID:    "test-key-id",
+      R2_SECRET_ACCESS_KEY: "test-secret",
+      BUCKET_NAME:         "lfs-objects",
+    },
+  });
+
+  await mf.ready;
+
+  const db = await mf.getD1Database("DB");
+  await db.exec(SCHEMA);
+
+  return mf;
+}
+
+// Call in beforeEach to prevent test cross-contamination.
+export async function resetStorage(mf: Miniflare) {
+  const db = await mf.getD1Database("DB");
+  await db.prepare("DELETE FROM locks").run();
+
+  const bucket = await mf.getR2Bucket("LFS_BUCKET");
+  const listed = await bucket.list();
+  await Promise.all(listed.objects.map((o) => bucket.delete(o.key)));
+}
+```
+
+### Test Patterns
+
+**Auth — missing credentials → 401**
+
+```typescript
+const res = await mf.dispatchFetch("http://worker/alice/repo/objects/batch", {
+  method: "POST",
+  headers: LFS,
+  body: JSON.stringify({ operation: "download", objects: [] }),
+});
+expect(res.status).toBe(401);
+expect(res.headers.get("LFS-Authenticate")).toBe('Basic realm="Git LFS"');
+```
+
+**Wrong Accept → 404**
+
+```typescript
+const res = await mf.dispatchFetch("http://worker/alice/repo/objects/batch", {
+  method: "POST",
+  headers: { Authorization: ALICE, Accept: "application/json" },
+  body: JSON.stringify({ operation: "download", objects: [] }),
+});
+expect(res.status).toBe(404);
+```
+
+**Batch download — object exists** (seed R2 via Node-side binding)
+
+```typescript
+const bucket = await mf.getR2Bucket("LFS_BUCKET");
+await bucket.put("alice/repo/abc123", new Uint8Array([1, 2, 3]));
+
+const res = await mf.dispatchFetch("http://worker/alice/repo/objects/batch", {
+  method: "POST",
+  headers: { ...LFS, Authorization: ALICE },
+  body: JSON.stringify({ operation: "download", objects: [{ oid: "abc123", size: 3 }] }),
+});
+const body = await res.json() as any;
+expect(res.status).toBe(200);
+expect(body.objects[0].actions.download.href).toMatch(/^https:\/\//);
+expect(body.objects[0]).not.toHaveProperty("error");
+```
+
+**Batch download — object missing → per-object error**
+
+```typescript
+const res = await mf.dispatchFetch("http://worker/alice/repo/objects/batch", {
+  method: "POST",
+  headers: { ...LFS, Authorization: ALICE },
+  body: JSON.stringify({ operation: "download", objects: [{ oid: "deadbeef", size: 0 }] }),
+});
+const body = await res.json() as any;
+expect(body.objects[0].error.code).toBe(404);
+```
+
+**Batch upload — new object → upload + verify actions**
+
+```typescript
+const res = await mf.dispatchFetch("http://worker/alice/repo/objects/batch", {
+  method: "POST",
+  headers: { ...LFS, Authorization: ALICE },
+  body: JSON.stringify({ operation: "upload", objects: [{ oid: "deadbeef", size: 1024 }] }),
+});
+const body = await res.json() as any;
+expect(body.objects[0].actions.upload.href).toMatch(/^https:\/\//);
+expect(body.objects[0].actions.verify.href).toMatch(/^https?:\/\//);
+```
+
+**Batch upload — object already in R2 → no actions**
+
+```typescript
+const bucket = await mf.getR2Bucket("LFS_BUCKET");
+await bucket.put("alice/repo/abc123", new Uint8Array([1, 2, 3]));
+
+const res = await mf.dispatchFetch("http://worker/alice/repo/objects/batch", {
+  method: "POST",
+  headers: { ...LFS, Authorization: ALICE },
+  body: JSON.stringify({ operation: "upload", objects: [{ oid: "abc123", size: 3 }] }),
+});
+const body = await res.json() as any;
+expect(body.objects[0]).not.toHaveProperty("actions");
+```
+
+**Lock lifecycle — create, list, verify, delete**
+
+```typescript
+// Create
+const create = await mf.dispatchFetch("http://worker/alice/repo/locks", {
+  method: "POST",
+  headers: { ...LFS, Authorization: ALICE },
+  body: JSON.stringify({ path: "assets/large.bin" }),
+});
+expect(create.status).toBe(201);
+const { lock } = await create.json() as any;
+expect(lock.owner.name).toBe("alice");
+
+// Duplicate → 409
+const dup = await mf.dispatchFetch("http://worker/alice/repo/locks", {
+  method: "POST",
+  headers: { ...LFS, Authorization: ALICE },
+  body: JSON.stringify({ path: "assets/large.bin" }),
+});
+expect(dup.status).toBe(409);
+
+// List
+const list = await mf.dispatchFetch("http://worker/alice/repo/locks", {
+  headers: { ...LFS, Authorization: ALICE },
+});
+const listBody = await list.json() as any;
+expect(listBody.locks).toHaveLength(1);
+
+// Unlock by non-owner without force → 403
+const badUnlock = await mf.dispatchFetch(
+  `http://worker/alice/repo/locks/${lock.id}/unlock`,
+  { method: "POST", headers: { ...LFS, Authorization: BOB }, body: "{}" }
+);
+expect(badUnlock.status).toBe(403);
+
+// Unlock by non-owner with force → 200
+const forceUnlock = await mf.dispatchFetch(
+  `http://worker/alice/repo/locks/${lock.id}/unlock`,
+  { method: "POST", headers: { ...LFS, Authorization: BOB },
+    body: JSON.stringify({ force: true }) }
+);
+expect(forceUnlock.status).toBe(200);
+```
+
+### Presigned URL Limitation
+
+The batch endpoint generates presigned S3 URLs via `@aws-sdk/client-s3`.
+In tests, fake credentials produce structurally valid but non-functional URLs.
+Tests assert URL format (`/^https:\/\//`) rather than exercising them.
+
+To seed objects into R2 for download tests or verify-endpoint tests, use the
+Node-side binding (`mf.getR2Bucket("LFS_BUCKET").put(...)`) to bypass the
+presign path entirely. This covers all server logic without needing a real
+S3-compatible endpoint.
+
+End-to-end upload/download through presigned URLs is out of scope for local
+integration testing and is verified during staging deployment against real R2.
+
+### Test Coverage Map
+
+| Scenario | Endpoint | Assertion |
+|----------|----------|-----------|
+| TestGetUnAuthed | POST /objects/batch | 401 + `LFS-Authenticate` header |
+| TestGetBadAuth | POST /objects/batch | 401 on wrong password |
+| TestMediaTypesRequired | POST /objects/batch | 404 on wrong Accept |
+| TestMediaTypesParsed | POST /objects/batch | 200 on `charset=utf-8` suffix |
+| Batch upload — new object | POST /objects/batch | response has `upload` + `verify` actions |
+| Batch upload — existing | POST /objects/batch | no `actions` key |
+| Batch download — exists | POST /objects/batch | `download` action URL present |
+| Batch download — missing | POST /objects/batch | per-object `error.code = 404` |
+| Verify — object present + size match | POST /objects/verify | 200 |
+| Verify — size mismatch | POST /objects/verify | 422 |
+| TestLock | POST /locks | 201, `lock.owner.name = "alice"` |
+| TestLockExists | POST /locks | 409 on duplicate path |
+| TestLockUnAuthed | POST /locks | 401 |
+| TestLocksList | GET /locks | 200, full lock rows |
+| TestLocksListUnAuthed | GET /locks | 401 |
+| Cursor pagination | GET /locks?cursor= | `next_cursor` set when page overflows |
+| TestLocksVerify | POST /locks/verify | `ours`/`theirs` partition correct |
+| TestUnlock | POST /locks/:id/unlock | 200, deleted lock in body |
+| TestUnLockUnAuthed | POST /locks/:id/unlock | 401 |
+| TestUnlockNotOwner | POST /locks/:id/unlock | 403 without `force` |
+| TestUnlockNotOwnerForce | POST /locks/:id/unlock | 200 with `force: true` |
+
+---
+
+## Smoke Tests (Manual with `curl`)
+
+Quick ad-hoc verification against `bun run dev` (real wrangler local server).
+Set `TOKEN` to whatever `AUTH_TOKEN` is configured in `.dev.vars`.
 
 ```bash
 BASE=http://localhost:8787/alice/repo

@@ -64,6 +64,8 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
+---
+
 ## Commands
 
 ```bash
@@ -71,6 +73,8 @@ bun install          # install dependencies
 bun run dev          # local dev server via wrangler dev
 bun run deploy       # deploy to Cloudflare (minified)
 bun run cf-typegen   # regenerate worker-configuration.d.ts from wrangler.jsonc bindings
+bun run build        # bundle worker to dist/ (required before running tests)
+bun run test         # build + run integration tests via Miniflare (no real infra needed)
 ```
 
 ## Architecture
