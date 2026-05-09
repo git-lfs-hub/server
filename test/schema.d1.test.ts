@@ -9,7 +9,7 @@ function randomLockId(): string {
     .join("");
 }
 
-const SCHEMA = readFileSync(new URL("../sql/schema.sql", import.meta.url), "utf8");
+const SCHEMA = readFileSync(new URL("../sql/schema.d1.sql", import.meta.url), "utf8");
 
 let mf: Miniflare;
 let db: any;

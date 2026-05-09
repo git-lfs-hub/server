@@ -88,7 +88,7 @@ binding cannot generate presigned URLs)
 
 ## Data Model
 
-### D1 Schema (`sql/schema.sql`)
+### D1 Schema (`sql/schema.d1.sql`)
 
 ```sql
 CREATE TABLE IF NOT EXISTS locks (
@@ -121,7 +121,7 @@ src/
   batch.ts        -- POST /objects/batch handler
   verify.ts       -- POST /objects/verify handler
   locks.ts        -- all /locks handlers
-  schema.ts       -- Zod schemas
+  schema.zod.ts   -- Zod schemas
   r2.ts           -- S3Client factory + presign helpers
   types.ts        -- CloudflareBindings interface (or use generated file)
 ```
@@ -133,9 +133,9 @@ src/
 ### Phase 1 — Infrastructure
 
 1. **`wrangler.jsonc`** — add R2 and D1 bindings; run `cf-typegen`.
-2. **`sql/schema.sql`** — create and apply with `wrangler d1 execute lfs-locks --file sql/schema.sql`.
+2. **`sql/schema.d1.sql`** — create and apply with `wrangler d1 execute lfs-locks --file sql/schema.d1.sql`.
 3. **`src/r2.ts`** — S3Client factory (identical to reference, keyed from env).
-4. **`src/schema.ts`** — Zod schemas for all request/response shapes (see below).
+4. **`src/schema.zod.ts`** — Zod schemas for all request/response shapes (see below).
 5. **`src/auth.ts`** — Hono middleware for Basic Auth.
 
 ### Phase 2 — Batch API
@@ -354,7 +354,7 @@ that is out of scope for now.
 
 ---
 
-## Zod Schemas (`src/schema.ts`)
+## Zod Schemas (`src/schema.zod.ts`)
 
 ```typescript
 // Reuse from reference implementation with corrections:
@@ -415,9 +415,9 @@ Set `Content-Type: application/vnd.git-lfs+json` on all responses in a global
 
 ```
 1. wrangler.jsonc   -- add bindings
-2. sql/schema.sql   -- create D1 table
+2. sql/schema.d1.sql   -- create D1 table
 3. src/r2.ts        -- S3 client factory
-4. src/schema.ts    -- Zod types
+4. src/schema.zod.ts  -- Zod types
 5. src/auth.ts      -- Basic Auth middleware
 6. src/batch.ts     -- Batch API (upload + download)
 7. src/verify.ts    -- Verify endpoint
@@ -486,7 +486,7 @@ export const LFS   = {
   "Content-Type": "application/vnd.git-lfs+json",
 };
 
-const SCHEMA = readFileSync("sql/schema.sql", "utf8");
+const SCHEMA = readFileSync("sql/schema.d1.sql", "utf8");
 
 export async function createMiniflare() {
   const mf = new Miniflare({
