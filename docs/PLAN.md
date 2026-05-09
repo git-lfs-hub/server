@@ -88,7 +88,7 @@ binding cannot generate presigned URLs)
 
 ## Data Model
 
-### D1 Schema (`schema.sql`)
+### D1 Schema (`sql/schema.sql`)
 
 ```sql
 CREATE TABLE IF NOT EXISTS locks (
@@ -133,7 +133,7 @@ src/
 ### Phase 1 — Infrastructure
 
 1. **`wrangler.jsonc`** — add R2 and D1 bindings; run `cf-typegen`.
-2. **`schema.sql`** — create and apply with `wrangler d1 execute lfs-locks --file schema.sql`.
+2. **`sql/schema.sql`** — create and apply with `wrangler d1 execute lfs-locks --file sql/schema.sql`.
 3. **`src/r2.ts`** — S3Client factory (identical to reference, keyed from env).
 4. **`src/schema.ts`** — Zod schemas for all request/response shapes (see below).
 5. **`src/auth.ts`** — Hono middleware for Basic Auth.
@@ -411,11 +411,11 @@ Set `Content-Type: application/vnd.git-lfs+json` on all responses in a global
 
 ---
 
-## Implementation Order
+## Implementation Steps
 
 ```
 1. wrangler.jsonc   -- add bindings
-2. schema.sql       -- create D1 table
+2. sql/schema.sql   -- create D1 table
 3. src/r2.ts        -- S3 client factory
 4. src/schema.ts    -- Zod types
 5. src/auth.ts      -- Basic Auth middleware
@@ -425,7 +425,7 @@ Set `Content-Type: application/vnd.git-lfs+json` on all responses in a global
 9. src/index.ts     -- Wire everything together
 ```
 
-Each step is independently testable with `bun run dev` + `curl`.
+Each step is independently testable with `bun run dev` + `bun test`.
 
 ---
 
@@ -439,7 +439,7 @@ R2 bucket, or D1 database required.
 
 | Layer | Tool |
 |-------|------|
-| Test runner | Vitest (Node environment) |
+| Test runner | `bun test` |
 | Worker runtime | Miniflare (`../workers-sdk/packages/miniflare`) |
 | R2 simulation | Miniflare in-memory R2 |
 | D1 simulation | Miniflare in-memory D1 |
@@ -447,7 +447,6 @@ R2 bucket, or D1 database required.
 ### Installation
 
 ```bash
-bun add -D vitest
 bun add -D miniflare
 ```
 
@@ -455,7 +454,7 @@ Add scripts to `package.json`:
 
 ```jsonc
 "build": "wrangler deploy --dry-run --outdir dist",
-"test":  "bun run build && vitest run"
+"test":  "bun run build && bun test"
 ```
 
 Miniflare needs a compiled bundle, not raw TypeScript — the build step runs
@@ -471,7 +470,6 @@ test/
   batch.test.ts   -- POST /objects/batch (upload + download flows)
   verify.test.ts  -- POST /objects/verify
   locks.test.ts   -- all four /locks endpoints + pagination
-vitest.config.ts
 ```
 
 ### Miniflare Configuration (`test/helpers.ts`)
@@ -488,7 +486,7 @@ export const LFS   = {
   "Content-Type": "application/vnd.git-lfs+json",
 };
 
-const SCHEMA = readFileSync("schema.sql", "utf8");
+const SCHEMA = readFileSync("sql/schema.sql", "utf8");
 
 export async function createMiniflare() {
   const mf = new Miniflare({

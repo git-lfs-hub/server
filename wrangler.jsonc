@@ -17,28 +17,20 @@
 	"upload_source_maps": true,
 	"compatibility_flags": [
 		"nodejs_compat"
-	]
-	/**
-	 * Smart Placement
-	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
-	 */
-	// "placement": {  "mode": "smart" }
-	/**
-	 * Bindings
-	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
-	 * databases, object storage, AI inference, real-time communication and more.
-	 * https://developers.cloudflare.com/workers/runtime-apis/bindings/
-	 */
-	/**
-	 * Environment Variables
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#environment-variables
-	 * Note: Use secrets to store sensitive data.
-	 * https://developers.cloudflare.com/workers/configuration/secrets/
-	 */
-	// "vars": {  "MY_VARIABLE": "production_value" }
-	/**
-	 * Service Bindings (communicate between multiple Workers)
-	 * https://developers.cloudflare.com/workers/wrangler/configuration/#service-bindings
-	 */
-	// "services": [  {   "binding": "MY_SERVICE",   "service": "my-service"  } ]
+	],
+	"r2_buckets": [
+		{ "binding": "LFS_BUCKET", "bucket_name": "lfs-objects" }
+	],
+	"d1_databases": [
+		{ "binding": "DB", "database_name": "lfs-locks", "database_id": "00000000-0000-0000-0000-000000000000" }
+	],
+	"vars": {
+		"ACCOUNT_ID": "",
+		"BUCKET_NAME": "lfs-objects",
+		// Listed here only so cf-typegen generates the types.
+		// Override with `wrangler secret put AUTH_TOKEN` etc. — never commit real values.
+		"AUTH_TOKEN": "",
+		"R2_ACCESS_KEY_ID": "",
+		"R2_SECRET_ACCESS_KEY": ""
+	}
 }

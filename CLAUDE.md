@@ -74,7 +74,7 @@ bun run dev          # local dev server via wrangler dev
 bun run deploy       # deploy to Cloudflare (minified)
 bun run cf-typegen   # regenerate worker-configuration.d.ts from wrangler.jsonc bindings
 bun run build        # bundle worker to dist/ (required before running tests)
-bun run test         # build + run integration tests via Miniflare (no real infra needed)
+bun test             # build + run integration tests via Miniflare (no real infra needed)
 ```
 
 ## Architecture
