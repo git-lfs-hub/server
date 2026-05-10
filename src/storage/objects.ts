@@ -1,4 +1,3 @@
-import { MiddlewareHandler } from "hono";
 import {
   GetObjectCommand,
   HeadObjectCommand,
@@ -15,7 +14,7 @@ interface S3Env {
   S3_PRESIGN_TTL: string;
 }
 
-export class S3Bucket {
+export class ObjectsStorage {
   private readonly env: S3Env;
   private readonly client: S3Client;
 

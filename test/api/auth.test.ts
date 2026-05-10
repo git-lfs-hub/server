@@ -1,28 +1,30 @@
-import { mock, describe, test, expect, beforeEach } from "bun:test";
+import { vi, describe, test, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
-import type { AppEnv } from "../src/index";
+import type { AppEnv } from "../../src/index";
 
 // ---------------------------------------------------------------------------
 // Octokit mock — must be set up before auth.ts is imported
 // ---------------------------------------------------------------------------
 
-let mockAuthenticated = true;
-let mockHasRepoAccess = true;
-let mockGithubLogin = "alice";
+const mockState = vi.hoisted(() => ({
+  authenticated: true,
+  hasRepoAccess: true,
+  githubLogin: "alice",
+}));
 
-mock.module("@octokit/rest", () => ({
+vi.mock("@octokit/rest", () => ({
   Octokit: class {
     rest = {
       users: {
         getAuthenticated: async () => {
-          if (!mockAuthenticated)
+          if (!mockState.authenticated)
             throw Object.assign(new Error("Unauthorized"), { status: 401 });
-          return { data: { login: mockGithubLogin } };
+          return { data: { login: mockState.githubLogin } };
         },
       },
       repos: {
         get: async () => {
-          if (!mockHasRepoAccess)
+          if (!mockState.hasRepoAccess)
             throw Object.assign(new Error("Not found"), { status: 404 });
           return { data: {} };
         },
@@ -31,7 +33,7 @@ mock.module("@octokit/rest", () => ({
   },
 }));
 
-import { authMiddleware, extractToken } from "../src/auth";
+import { authMiddleware, extractToken } from "../../src/api/auth";
 
 // ---------------------------------------------------------------------------
 // extractToken — pure function tests, no app needed
@@ -111,9 +113,9 @@ function basic(username: string, password: string) {
 
 describe("authMiddleware", () => {
   beforeEach(() => {
-    mockAuthenticated = true;
-    mockHasRepoAccess = true;
-    mockGithubLogin = "alice";
+    mockState.authenticated = true;
+    mockState.hasRepoAccess = true;
+    mockState.githubLogin = "alice";
   });
 
   describe("401 responses", () => {
@@ -137,7 +139,7 @@ describe("authMiddleware", () => {
     });
 
     test("rejects when GitHub says token is invalid", async () => {
-      mockAuthenticated = false;
+      mockState.authenticated = false;
       const res = await app.request(REPO_URL, {
         headers: { Authorization: basic("alice", "bad-token") },
       });
@@ -145,7 +147,7 @@ describe("authMiddleware", () => {
     });
 
     test("rejects when GitHub says no read access to repo", async () => {
-      mockHasRepoAccess = false;
+      mockState.hasRepoAccess = false;
       const res = await app.request(REPO_URL, {
         headers: { Authorization: basic("alice", "valid-token") },
       });
@@ -173,7 +175,7 @@ describe("authMiddleware", () => {
     });
 
     test("sets user variable to the GitHub login", async () => {
-      mockGithubLogin = "gh-alice";
+      mockState.githubLogin = "gh-alice";
       const res = await app.request(REPO_URL, {
         headers: { Authorization: basic("alice", "ghp_valid_token") },
       });
@@ -189,9 +191,6 @@ describe("authMiddleware", () => {
     });
 
     test("strips .git from repo name before checking GitHub", async () => {
-      // If .git were not stripped, GitHub would return 404 for "repo.git" and
-      // we'd get 401. Since GitHub confirms access (mockHasRepoAccess = true),
-      // a 200 here proves the middleware stripped the suffix.
       const res = await app.request("http://w/alice/repo.git/", {
         headers: { Authorization: basic("alice", "ghp_valid_token") },
       });

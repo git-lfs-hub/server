@@ -1,30 +1,15 @@
 import { Context, Hono, MiddlewareHandler } from "hono";
-import { authMiddleware } from "./auth";
-import { batchValidator, batchHandler } from "./batch";
-import { verifyValidator, verifyHandler } from "./verify";
-import {
-  createLockValidator,
-  createLockHandler,
-  listLocksHandler,
-  verifyLocksValidator,
-  verifyLocksHandler,
-  unlockValidator,
-  unlockHandler,
-} from "./locks";
-import { S3Bucket } from "./s3";
+import { authMiddleware } from "./api/auth";
+import { initObjectsApi } from "./api/objects";
+import { initLocksApi } from "./api/locks";
+import { ObjectsStorage } from "./storage/objects";
 
 const LFS_CONTENT_TYPE = "application/vnd.git-lfs+json";
 
 export type AppEnv = {
   Bindings: CloudflareBindings;
-  Variables: { user: string; s3bucket: S3Bucket };
+  Variables: { user: string; objects: ObjectsStorage };
 };
-
-export type Ctx<Schema> = Context<
-  AppEnv,
-  string,
-  { in: { json: Schema }; out: { json: Schema } }
->;
 
 const app = new Hono<AppEnv>();
 
@@ -45,23 +30,18 @@ app.use("/:owner/:repo/*", async (c, next) => {
 // Authenticate all LFS routes.
 app.use("/:owner/:repo/*", authMiddleware);
 
-// Inject S3Bucket instance.
-let s3Bucket: S3Bucket | null = null;
+// Inject ObjectsStorage instance.
+let objects: ObjectsStorage | null = null;
 app.use("/:owner/:repo/objects/*", async (c, next) => {
-  c.set("s3bucket", s3Bucket || (s3Bucket = new S3Bucket(c.env)));
+  c.set("objects", objects || (objects = new ObjectsStorage(c.env)));
   await next();
 });
 
 // Routes
-app.post("/:owner/:repo/objects/batch", batchValidator, batchHandler);
-app.post("/:owner/:repo/objects/verify", verifyValidator, verifyHandler);
-app.post("/:owner/:repo/locks", createLockValidator, createLockHandler);
-app.get("/:owner/:repo/locks", listLocksHandler);
-app.post(
-  "/:owner/:repo/locks/verify",
-  verifyLocksValidator,
-  verifyLocksHandler,
-);
-app.post("/:owner/:repo/locks/:id/unlock", unlockValidator, unlockHandler);
+initObjectsApi(app);
+initLocksApi(app);
 
 export default app;
+
+// required for Wrangler
+export { RepoLocks } from "./db/locks";

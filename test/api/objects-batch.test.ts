@@ -1,8 +1,8 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect } from "vitest";
 import { Hono } from "hono";
-import { batchValidator, batchHandler } from "../src/batch";
-import { S3Bucket } from "../src/s3";
-import type { AppEnv } from "../src/index";
+import { initObjectsApi } from "../../src/api/objects";
+import { ObjectsStorage } from "../../src/storage/objects";
+import type { AppEnv } from "../../src/index";
 
 function makeEnv() {
   return {
@@ -17,10 +17,10 @@ function makeEnv() {
 function makeApp() {
   const app = new Hono<AppEnv>();
   app.use("/:owner/:repo/*", (c, next) => {
-    c.set("s3bucket", new S3Bucket(c.env));
+    c.set("objects", new ObjectsStorage(c.env));
     return next();
   });
-  app.post("/:owner/:repo/objects/batch", batchValidator, batchHandler);
+  initObjectsApi(app);
   return app;
 }
 

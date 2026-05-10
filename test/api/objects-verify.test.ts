@@ -1,12 +1,13 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect } from "vitest";
 import { Hono } from "hono";
-import { verifyValidator, verifyHandler } from "../src/verify";
-import type { AppEnv } from "../src/index";
+
+import type { AppEnv } from "../../src/index";
+import { initObjectsApi } from "../../src/api/objects";
 
 function makeApp(objects: Record<string, number> = {}) {
   const app = new Hono<AppEnv>();
   app.use("/:owner/:repo/*", (c, next) => {
-    c.set("s3bucket", {
+    c.set("objects", {
       verifyObject: async (key: string, size?: number) => {
         if (!(key in objects)) return { message: "Object not found" };
         if (size !== undefined && size !== objects[key])
@@ -16,7 +17,7 @@ function makeApp(objects: Record<string, number> = {}) {
     } as any);
     return next();
   });
-  app.post("/:owner/:repo/objects/verify", verifyValidator, verifyHandler);
+  initObjectsApi(app);
   return app;
 }
 

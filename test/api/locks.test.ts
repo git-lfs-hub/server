@@ -1,102 +1,14 @@
-import { describe, test, expect } from "bun:test";
-import { Database } from "bun:sqlite";
-import { readFileSync } from "fs";
+import { env } from "cloudflare:workers";
+import { reset } from "cloudflare:test";
+import { describe, test, expect, afterEach } from "vitest";
+
+afterEach(async () => {
+  await reset();
+});
+
 import { Hono } from "hono";
-import {
-  createLockValidator,
-  createLockHandler,
-  listLocksHandler,
-  verifyLocksValidator,
-  verifyLocksHandler,
-  unlockValidator,
-  unlockHandler,
-} from "../src/locks";
-
-// ---------------------------------------------------------------------------
-// D1 mock backed by bun:sqlite
-// ---------------------------------------------------------------------------
-
-const SCHEMA = readFileSync("sql/locks.sql", "utf8");
-
-type SeedLock = {
-  id: string;
-  owner: string;
-  path: string;
-  repo: string;
-  locked_at: string;
-};
-
-function makeD1(seeds: SeedLock[] = []): D1Database {
-  const db = new Database(":memory:");
-  SCHEMA.split(";")
-    .filter((s) => s.trim())
-    .forEach((s) => db.run(s));
-  for (const l of seeds) {
-    db.prepare("INSERT INTO locks VALUES (?, ?, ?, ?, ?)").run(
-      l.id,
-      l.owner,
-      l.path,
-      l.repo,
-      l.locked_at,
-    );
-  }
-
-  return {
-    prepare(sql: string) {
-      let args: unknown[] = [];
-      const self = {
-        bind(...a: unknown[]) {
-          args = a;
-          return self;
-        },
-        async run() {
-          const r = db.prepare(sql).run(...(args as any[]));
-          return {
-            success: true,
-            meta: { changes: r.changes, last_row_id: r.lastInsertRowid },
-          };
-        },
-        async first() {
-          return db.prepare(sql).get(...(args as any[])) ?? null;
-        },
-        async all() {
-          return {
-            success: true,
-            results: db.prepare(sql).all(...(args as any[])),
-            meta: {},
-          };
-        },
-      };
-      return self;
-    },
-  } as any;
-}
-
-// ---------------------------------------------------------------------------
-// Fixtures
-// ---------------------------------------------------------------------------
-
-const ALICE_LOCK: SeedLock = {
-  id: "a".repeat(40),
-  owner: "alice",
-  path: "assets/file-a.bin",
-  repo: "alice/repo",
-  locked_at: "2024-01-01T00:00:00Z",
-};
-
-const BOB_LOCK: SeedLock = {
-  id: "b".repeat(40),
-  owner: "bob",
-  path: "assets/file-b.bin",
-  repo: "alice/repo",
-  locked_at: "2024-01-02T00:00:00Z",
-};
-
-// ---------------------------------------------------------------------------
-// App factory
-// ---------------------------------------------------------------------------
-
-import type { AppEnv } from "../src/index";
+import { initLocksApi } from "../../src/api/locks";
+import type { AppEnv } from "../../src/index";
 
 function makeApp(user: string) {
   const app = new Hono<AppEnv>();
@@ -104,14 +16,7 @@ function makeApp(user: string) {
     c.set("user", user);
     await next();
   });
-  app.post("/:owner/:repo/locks", createLockValidator, createLockHandler);
-  app.get("/:owner/:repo/locks", listLocksHandler);
-  app.post(
-    "/:owner/:repo/locks/verify",
-    verifyLocksValidator,
-    verifyLocksHandler,
-  );
-  app.post("/:owner/:repo/locks/:id/unlock", unlockValidator, unlockHandler);
+  initLocksApi(app);
   return app;
 }
 
@@ -123,8 +28,8 @@ const LFS = {
   "Content-Type": "application/vnd.git-lfs+json",
 };
 
-function env(seeds: SeedLock[] = []) {
-  return { DB: makeD1(seeds) } as any;
+function locksStub(repo: string) {
+  return env.LOCKS.getByName(repo);
 }
 
 // ---------------------------------------------------------------------------
@@ -140,20 +45,23 @@ describe("createLockHandler", () => {
         headers: LFS,
         body: JSON.stringify({ path: "file.bin" }),
       },
-      env(),
+      env,
     );
     expect(res.status).toBe(201);
     const body = (await res.json()) as any;
     expect(body.lock.path).toBe("file.bin");
     expect(body.lock.owner.name).toBe("alice");
     expect(typeof body.lock.id).toBe("string");
-    expect(body.lock.id).toHaveLength(40);
     expect(body.lock.locked_at).toMatch(
       /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/,
     );
   });
 
   test("409 when path already locked in same repo", async () => {
+    const existing = await locksStub("alice/repo").create(
+      "alice",
+      "assets/file-a.bin",
+    );
     const res = await alice.request(
       "http://w/alice/repo/locks",
       {
@@ -161,16 +69,16 @@ describe("createLockHandler", () => {
         headers: LFS,
         body: JSON.stringify({ path: "assets/file-a.bin" }),
       },
-      env([ALICE_LOCK]),
+      env,
     );
     expect(res.status).toBe(409);
     const body = (await res.json()) as any;
-    expect(body.lock.id).toBe(ALICE_LOCK.id);
+    expect(body.lock.id).toBe(existing.uuid);
     expect(typeof body.message).toBe("string");
   });
 
   test("different repos can lock the same path independently", async () => {
-    const e = env([ALICE_LOCK]); // lock exists in alice/repo
+    await locksStub("alice/repo").create("alice", "assets/file-a.bin");
     const res = await alice.request(
       "http://w/alice/other-repo/locks",
       {
@@ -178,13 +86,13 @@ describe("createLockHandler", () => {
         headers: LFS,
         body: JSON.stringify({ path: "assets/file-a.bin" }),
       },
-      e,
+      env,
     );
     expect(res.status).toBe(201);
   });
 
   test("strips .git from repo name", async () => {
-    const e = env([ALICE_LOCK]); // seeded as alice/repo
+    await locksStub("alice/repo").create("alice", "assets/file-a.bin");
     const res = await alice.request(
       "http://w/alice/repo.git/locks",
       {
@@ -192,9 +100,8 @@ describe("createLockHandler", () => {
         headers: LFS,
         body: JSON.stringify({ path: "assets/file-a.bin" }),
       },
-      e,
+      env,
     );
-    // Should see the existing lock in alice/repo → 409
     expect(res.status).toBe(409);
   });
 
@@ -202,7 +109,7 @@ describe("createLockHandler", () => {
     const res = await alice.request(
       "http://w/alice/repo/locks",
       { method: "POST", headers: LFS, body: "bad" },
-      env(),
+      env,
     );
     expect(res.status).toBe(400);
   });
@@ -211,7 +118,7 @@ describe("createLockHandler", () => {
     const res = await alice.request(
       "http://w/alice/repo/locks",
       { method: "POST", headers: LFS, body: JSON.stringify({}) },
-      env(),
+      env,
     );
     expect(res.status).toBe(422);
   });
@@ -226,7 +133,7 @@ describe("listLocksHandler", () => {
     const res = await alice.request(
       "http://w/alice/repo/locks",
       { headers: LFS },
-      env(),
+      env,
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
@@ -234,133 +141,183 @@ describe("listLocksHandler", () => {
   });
 
   test("returns all locks in repo", async () => {
+    const stub = locksStub("alice/repo");
+    await stub.create("alice", "assets/file-a.bin");
+    await stub.create("bob", "assets/file-b.bin");
     const res = await alice.request(
       "http://w/alice/repo/locks",
       { headers: LFS },
-      env([ALICE_LOCK, BOB_LOCK]),
+      env,
     );
     const body = (await res.json()) as any;
     expect(body.locks).toHaveLength(2);
   });
 
   test("filters by path", async () => {
+    const stub = locksStub("alice/repo");
+    const aliceLock = await stub.create("alice", "assets/file-a.bin");
+    await stub.create("bob", "assets/file-b.bin");
     const res = await alice.request(
-      `http://w/alice/repo/locks?path=${encodeURIComponent(ALICE_LOCK.path)}`,
+      `http://w/alice/repo/locks?path=${encodeURIComponent(aliceLock.path)}`,
       { headers: LFS },
-      env([ALICE_LOCK, BOB_LOCK]),
+      env,
     );
     const body = (await res.json()) as any;
     expect(body.locks).toHaveLength(1);
-    expect(body.locks[0].path).toBe(ALICE_LOCK.path);
+    expect(body.locks[0].path).toBe(aliceLock.path);
   });
 
   test("filters by id", async () => {
+    const stub = locksStub("alice/repo");
+    const aliceLock = await stub.create("alice", "assets/file-a.bin");
+    await stub.create("bob", "assets/file-b.bin");
     const res = await alice.request(
-      `http://w/alice/repo/locks?id=${ALICE_LOCK.id}`,
+      `http://w/alice/repo/locks?id=${aliceLock.uuid}`,
       { headers: LFS },
-      env([ALICE_LOCK, BOB_LOCK]),
+      env,
     );
     const body = (await res.json()) as any;
     expect(body.locks).toHaveLength(1);
-    expect(body.locks[0].id).toBe(ALICE_LOCK.id);
+    expect(body.locks[0].id).toBe(aliceLock.uuid);
   });
 
   test("lock shape includes id, path, locked_at, owner.name", async () => {
+    const lock = await locksStub("alice/repo").create(
+      "alice",
+      "assets/file-a.bin",
+    );
     const res = await alice.request(
       "http://w/alice/repo/locks",
       { headers: LFS },
-      env([ALICE_LOCK]),
+      env,
     );
     const body = (await res.json()) as any;
-    const lock = body.locks[0];
-    expect(lock.id).toBe(ALICE_LOCK.id);
-    expect(lock.path).toBe(ALICE_LOCK.path);
-    expect(lock.locked_at).toBe(ALICE_LOCK.locked_at);
-    expect(lock.owner.name).toBe(ALICE_LOCK.owner);
+    const item = body.locks[0];
+    expect(item.id).toBe(lock.uuid);
+    expect(item.path).toBe(lock.path);
+    expect(item.locked_at).toBe(lock.locked_at);
+    expect(item.owner.name).toBe(lock.owner);
   });
 
   test("does not return locks from other repos", async () => {
-    const otherRepo: SeedLock = {
-      ...ALICE_LOCK,
-      id: "c".repeat(40),
-      repo: "alice/other",
-    };
+    await locksStub("alice/repo").create("alice", "assets/file-a.bin");
+    await locksStub("alice/other").create("alice", "assets/file-a.bin");
     const res = await alice.request(
       "http://w/alice/repo/locks",
       { headers: LFS },
-      env([ALICE_LOCK, otherRepo]),
+      env,
     );
     const body = (await res.json()) as any;
     expect(body.locks).toHaveLength(1);
   });
 
-  test("pagination: sets next_cursor when results overflow limit", async () => {
-    const lock1: SeedLock = {
-      ...ALICE_LOCK,
-      id: "1".repeat(40),
-      locked_at: "2024-01-01T00:00:00Z",
-    };
-    const lock2: SeedLock = {
-      ...ALICE_LOCK,
-      id: "2".repeat(40),
-      path: "b.bin",
-      locked_at: "2024-01-02T00:00:00Z",
-    };
-    const lock3: SeedLock = {
-      ...ALICE_LOCK,
-      id: "3".repeat(40),
-      path: "c.bin",
-      locked_at: "2024-01-03T00:00:00Z",
-    };
+  test("pagination: next_cursor enables fetching the remaining locks", async () => {
+    const stub = locksStub("alice/repo");
+    await stub.create("alice", "a.bin");
+    await stub.create("alice", "b.bin");
+    await stub.create("alice", "c.bin");
 
-    const res = await alice.request(
+    const page1 = await alice.request(
       "http://w/alice/repo/locks?limit=2",
       { headers: LFS },
-      env([lock1, lock2, lock3]),
+      env,
     );
-    const body = (await res.json()) as any;
-    expect(body.locks).toHaveLength(2);
-    expect(body.next_cursor).toBe(lock3.id);
+    const body1 = (await page1.json()) as any;
+    expect(body1.locks).toHaveLength(2);
+    expect(body1.next_cursor).toBeDefined();
+
+    const page2 = await alice.request(
+      `http://w/alice/repo/locks?cursor=${body1.next_cursor}`,
+      { headers: LFS },
+      env,
+    );
+    const body2 = (await page2.json()) as any;
+    expect(body2.locks).toHaveLength(1);
+    expect(body2).not.toHaveProperty("next_cursor");
+
+    const allIds = [...body1.locks, ...body2.locks].map((l: any) => l.id);
+    expect(new Set(allIds).size).toBe(3);
   });
 
   test("pagination: no next_cursor when results fit within limit", async () => {
+    await locksStub("alice/repo").create("alice", "a.bin");
     const res = await alice.request(
       "http://w/alice/repo/locks?limit=10",
       { headers: LFS },
-      env([ALICE_LOCK]),
+      env,
     );
     const body = (await res.json()) as any;
     expect(body).not.toHaveProperty("next_cursor");
   });
 
-  test("cursor: returns locks starting at cursor position", async () => {
-    const lock1: SeedLock = {
-      ...ALICE_LOCK,
-      id: "1".repeat(40),
-      locked_at: "2024-01-01T00:00:00Z",
-    };
-    const lock2: SeedLock = {
-      ...ALICE_LOCK,
-      id: "2".repeat(40),
-      path: "b.bin",
-      locked_at: "2024-01-02T00:00:00Z",
-    };
-    const lock3: SeedLock = {
-      ...ALICE_LOCK,
-      id: "3".repeat(40),
-      path: "c.bin",
-      locked_at: "2024-01-03T00:00:00Z",
-    };
+  test("cursor: deleted cursor lock - second page still returns remaining locks", async () => {
+    const stub = locksStub("alice/repo");
+    await stub.create("alice", "a.bin");
+    await stub.create("alice", "b.bin");
+    await stub.create("alice", "c.bin");
 
-    const res = await alice.request(
-      `http://w/alice/repo/locks?cursor=${lock2.id}`,
+    // Determine actual sort order by fetching all locks upfront
+    const allRes = await alice.request(
+      "http://w/alice/repo/locks",
       { headers: LFS },
-      env([lock1, lock2, lock3]),
+      env,
     );
-    const body = (await res.json()) as any;
-    expect(body.locks).toHaveLength(2);
-    expect(body.locks[0].id).toBe(lock2.id);
-    expect(body.locks[1].id).toBe(lock3.id);
+    const {
+      locks: [first, second, third],
+    } = (await allRes.json()) as any;
+
+    // Alice fetches page 1; next_cursor points to the second lock
+    const page1Res = await alice.request(
+      "http://w/alice/repo/locks?limit=1",
+      { headers: LFS },
+      env,
+    );
+    const page1 = (await page1Res.json()) as any;
+    expect(page1.next_cursor).toBeDefined();
+
+    // Bob deletes the lock that alice's cursor points to
+    await bob.request(
+      `http://w/alice/repo/locks/${second.id}/unlock`,
+      { method: "POST", headers: LFS, body: JSON.stringify({ force: true }) },
+      env,
+    );
+
+    // Alice uses the cursor; page 2 should return the third lock without crashing
+    const page2Res = await alice.request(
+      `http://w/alice/repo/locks?cursor=${page1.next_cursor}`,
+      { headers: LFS },
+      env,
+    );
+    expect(page2Res.status).toBe(200);
+    const page2 = (await page2Res.json()) as any;
+    expect(page2.locks).toHaveLength(1);
+    expect(page2.locks[0].id).toBe(third.id);
+  });
+
+  test("cursor: returns locks from cursor position inclusive", async () => {
+    const stub = locksStub("alice/repo");
+    await stub.create("alice", "a.bin");
+    await stub.create("alice", "b.bin");
+    await stub.create("alice", "c.bin");
+
+    const page1 = await alice.request(
+      "http://w/alice/repo/locks?limit=1",
+      { headers: LFS },
+      env,
+    );
+    const {
+      locks: [firstLock],
+      next_cursor,
+    } = (await page1.json()) as any;
+
+    const page2 = await alice.request(
+      `http://w/alice/repo/locks?cursor=${next_cursor}`,
+      { headers: LFS },
+      env,
+    );
+    const body2 = (await page2.json()) as any;
+    expect(body2.locks).toHaveLength(2);
+    expect(body2.locks[0].id).not.toBe(firstLock.id);
   });
 });
 
@@ -370,24 +327,28 @@ describe("listLocksHandler", () => {
 
 describe("verifyLocksHandler", () => {
   test("partitions locks into ours and theirs", async () => {
+    const stub = locksStub("alice/repo");
+    const aliceLock = await stub.create("alice", "assets/file-a.bin");
+    const bobLock = await stub.create("bob", "assets/file-b.bin");
+
     const res = await alice.request(
       "http://w/alice/repo/locks/verify",
       { method: "POST", headers: LFS, body: JSON.stringify({}) },
-      env([ALICE_LOCK, BOB_LOCK]),
+      env,
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.ours).toHaveLength(1);
-    expect(body.ours[0].id).toBe(ALICE_LOCK.id);
+    expect(body.ours[0].id).toBe(aliceLock.uuid);
     expect(body.theirs).toHaveLength(1);
-    expect(body.theirs[0].id).toBe(BOB_LOCK.id);
+    expect(body.theirs[0].id).toBe(bobLock.uuid);
   });
 
   test("ours and theirs are empty when no locks exist", async () => {
     const res = await alice.request(
       "http://w/alice/repo/locks/verify",
       { method: "POST", headers: LFS, body: JSON.stringify({}) },
-      env(),
+      env,
     );
     const body = (await res.json()) as any;
     expect(body.ours).toHaveLength(0);
@@ -395,38 +356,27 @@ describe("verifyLocksHandler", () => {
   });
 
   test("sets next_cursor on overflow", async () => {
-    const lock1: SeedLock = {
-      ...ALICE_LOCK,
-      id: "1".repeat(40),
-      locked_at: "2024-01-01T00:00:00Z",
-    };
-    const lock2: SeedLock = {
-      ...BOB_LOCK,
-      id: "2".repeat(40),
-      locked_at: "2024-01-02T00:00:00Z",
-    };
-    const lock3: SeedLock = {
-      ...ALICE_LOCK,
-      id: "3".repeat(40),
-      path: "c.bin",
-      locked_at: "2024-01-03T00:00:00Z",
-    };
+    const stub = locksStub("alice/repo");
+    await stub.create("alice", "a.bin");
+    await stub.create("bob", "b.bin");
+    await stub.create("alice", "c.bin");
 
     const res = await alice.request(
       "http://w/alice/repo/locks/verify",
       { method: "POST", headers: LFS, body: JSON.stringify({ limit: 2 }) },
-      env([lock1, lock2, lock3]),
+      env,
     );
     const body = (await res.json()) as any;
     expect(body.ours.length + body.theirs.length).toBe(2);
-    expect(body.next_cursor).toBe(lock3.id);
+    expect(body.next_cursor).toBeDefined();
   });
 
   test("accepts empty JSON body", async () => {
+    await locksStub("alice/repo").create("alice", "assets/file-a.bin");
     const res = await alice.request(
       "http://w/alice/repo/locks/verify",
       { method: "POST", headers: LFS, body: "{}" },
-      env([ALICE_LOCK]),
+      env,
     );
     expect(res.status).toBe(200);
   });
@@ -438,68 +388,84 @@ describe("verifyLocksHandler", () => {
 
 describe("unlockHandler", () => {
   test("200 and returns deleted lock when owner deletes own lock", async () => {
+    const lock = await locksStub("alice/repo").create(
+      "alice",
+      "assets/file-a.bin",
+    );
     const res = await alice.request(
-      `http://w/alice/repo/locks/${ALICE_LOCK.id}/unlock`,
+      `http://w/alice/repo/locks/${lock.uuid}/unlock`,
       { method: "POST", headers: LFS, body: "{}" },
-      env([ALICE_LOCK]),
+      env,
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
-    expect(body.lock.id).toBe(ALICE_LOCK.id);
+    expect(body.lock.id).toBe(lock.uuid);
   });
 
   test("404 when lock does not exist", async () => {
     const res = await alice.request(
       "http://w/alice/repo/locks/nonexistent/unlock",
       { method: "POST", headers: LFS, body: "{}" },
-      env(),
+      env,
     );
     expect(res.status).toBe(404);
   });
 
   test("403 when non-owner tries to unlock without force", async () => {
+    const lock = await locksStub("alice/repo").create(
+      "alice",
+      "assets/file-a.bin",
+    );
     const res = await bob.request(
-      `http://w/alice/repo/locks/${ALICE_LOCK.id}/unlock`,
+      `http://w/alice/repo/locks/${lock.uuid}/unlock`,
       { method: "POST", headers: LFS, body: "{}" },
-      env([ALICE_LOCK]),
+      env,
     );
     expect(res.status).toBe(403);
   });
 
   test("200 when non-owner unlocks with force: true", async () => {
+    const lock = await locksStub("alice/repo").create(
+      "alice",
+      "assets/file-a.bin",
+    );
     const res = await bob.request(
-      `http://w/alice/repo/locks/${ALICE_LOCK.id}/unlock`,
+      `http://w/alice/repo/locks/${lock.uuid}/unlock`,
       { method: "POST", headers: LFS, body: JSON.stringify({ force: true }) },
-      env([ALICE_LOCK]),
+      env,
     );
     expect(res.status).toBe(200);
   });
 
   test("404 when lock exists in different repo", async () => {
+    const lock = await locksStub("alice/repo").create(
+      "alice",
+      "assets/file-a.bin",
+    );
     const res = await alice.request(
-      `http://w/alice/other-repo/locks/${ALICE_LOCK.id}/unlock`,
+      `http://w/alice/other-repo/locks/${lock.uuid}/unlock`,
       { method: "POST", headers: LFS, body: "{}" },
-      env([ALICE_LOCK]),
+      env,
     );
     expect(res.status).toBe(404);
   });
 
   test("lock is actually deleted after unlock", async () => {
-    const db = makeD1([ALICE_LOCK]);
-    const e = { DB: db } as any;
-
-    // unlock
-    await alice.request(
-      `http://w/alice/repo/locks/${ALICE_LOCK.id}/unlock`,
-      { method: "POST", headers: LFS, body: "{}" },
-      e,
+    const lock = await locksStub("alice/repo").create(
+      "alice",
+      "assets/file-a.bin",
     );
 
-    // list — should be empty now
+    await alice.request(
+      `http://w/alice/repo/locks/${lock.uuid}/unlock`,
+      { method: "POST", headers: LFS, body: "{}" },
+      env,
+    );
+
     const listRes = await alice.request(
       "http://w/alice/repo/locks",
       { headers: LFS },
-      e,
+      env,
     );
     const body = (await listRes.json()) as any;
     expect(body.locks).toHaveLength(0);

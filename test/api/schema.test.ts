@@ -1,4 +1,4 @@
-import { describe, test, expect } from "bun:test";
+import { describe, test, expect } from "vitest";
 import {
   batchObjectSchema,
   batchRequestSchema,
@@ -13,7 +13,7 @@ import {
   unlockRequestSchema,
   unlockResponseSchema,
   verifyRequestSchema,
-} from "../src/api-schema";
+} from "../../src/api/_schema";
 
 // ---------------------------------------------------------------------------
 // Fixtures

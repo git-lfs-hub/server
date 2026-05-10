@@ -1,6 +1,6 @@
-import { describe, test, expect, spyOn, beforeEach, afterEach } from "bun:test";
+import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
 import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
-import { S3Bucket } from "../src/s3";
+import { ObjectsStorage } from "../../src/storage/objects";
 
 const ENV = {
   S3_ENDPOINT:          "https://test-account.r2.cloudflarestorage.com",
@@ -26,7 +26,7 @@ function parse(raw: string) {
 // ---------------------------------------------------------------------------
 
 describe("presignCommand", () => {
-  const bucket = new S3Bucket(ENV);
+  const bucket = new ObjectsStorage(ENV);
   const cmd = new PutObjectCommand({ Bucket: ENV.S3_BUCKET_NAME, Key: KEY });
 
   test("href is an HTTPS URL", async () => {
@@ -51,7 +51,7 @@ describe("presignCommand", () => {
 
   test("href X-Amz-Expires reflects a different S3_PRESIGN_TTL", async () => {
     const env = { ...ENV, S3_PRESIGN_TTL: "900" };
-    const href = await new S3Bucket(env).presignCommand(new PutObjectCommand({ Bucket: env.S3_BUCKET_NAME, Key: KEY }));
+    const href = await new ObjectsStorage(env).presignCommand(new PutObjectCommand({ Bucket: env.S3_BUCKET_NAME, Key: KEY }));
     expect(parse(href).params.get("X-Amz-Expires")).toBe("900");
   });
 
@@ -65,7 +65,7 @@ describe("presignCommand", () => {
 
 describe("presignUpload", () => {
   test("verify.href is the passed verifyHref", async () => {
-    const { actions: { verify } } = await new S3Bucket(ENV).presignUpload(KEY, VERIFY_HREF) as { actions: { verify: { href: string } } };
+    const { actions: { verify } } = await new ObjectsStorage(ENV).presignUpload(KEY, VERIFY_HREF) as { actions: { verify: { href: string } } };
     expect(verify.href).toBe(VERIFY_HREF);
   });
 });
@@ -73,10 +73,10 @@ describe("presignUpload", () => {
 // ---------------------------------------------------------------------------
 
 describe("presignDownload", () => {
-  let spy: ReturnType<typeof spyOn>;
+  let spy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
-    spy = spyOn(S3Client.prototype, "send").mockResolvedValue({ ContentLength: 1 } as any);
+    spy = vi.spyOn(S3Client.prototype, "send").mockResolvedValue({ ContentLength: 1 } as any);
   });
 
   afterEach(() => {
@@ -85,27 +85,27 @@ describe("presignDownload", () => {
 
   test("returns error object when the object does not exist", async () => {
     spy.mockRejectedValue(new Error("Not Found"));
-    const result = await new S3Bucket(ENV).presignDownload(KEY);
+    const result = await new ObjectsStorage(ENV).presignDownload(KEY);
     expect(result).toMatchObject({ error: { code: 404 } });
   });
 
   test("returns download action when the object exists", async () => {
-    const result = await new S3Bucket(ENV).presignDownload(KEY);
+    const result = await new ObjectsStorage(ENV).presignDownload(KEY);
     expect(result).toMatchObject({ actions: { download: { href: expect.any(String) } } });
   });
 
   test("download href is an HTTPS URL", async () => {
-    const result = await new S3Bucket(ENV).presignDownload(KEY) as { actions: { download: { href: string } } };
+    const result = await new ObjectsStorage(ENV).presignDownload(KEY) as { actions: { download: { href: string } } };
     expect(parse(result.actions.download.href).protocol).toBe("https:");
   });
 
   test("download href targets the configured S3 endpoint", async () => {
-    const result = await new S3Bucket(ENV).presignDownload(KEY) as { actions: { download: { href: string } } };
+    const result = await new ObjectsStorage(ENV).presignDownload(KEY) as { actions: { download: { href: string } } };
     expect(parse(result.actions.download.href).host).toBe("test-account.r2.cloudflarestorage.com");
   });
 
   test("download href path contains bucket name then key", async () => {
-    const result = await new S3Bucket(ENV).presignDownload(KEY) as { actions: { download: { href: string } } };
+    const result = await new ObjectsStorage(ENV).presignDownload(KEY) as { actions: { download: { href: string } } };
     expect(parse(result.actions.download.href).pathname).toBe("/lfs-objects/alice/repo/abc123def456");
   });
 });

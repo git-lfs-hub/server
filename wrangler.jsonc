@@ -17,13 +17,10 @@
   "upload_source_maps": true,
   "compatibility_flags": ["nodejs_compat"],
   "r2_buckets": [{ "binding": "LFS_BUCKET", "bucket_name": "lfs-objects" }],
-  "d1_databases": [
-    {
-      "binding": "DB",
-      "database_name": "lfs-locks",
-      "database_id": "00000000-0000-0000-0000-000000000000",
-    },
-  ],
+  "durable_objects": {
+    "bindings": [{ "name": "LOCKS", "class_name": "RepoLocks" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RepoLocks"] }],
   "vars": {
     // Listed here only so cf-typegen generates the types.
     // Override with `wrangler secret put S3_ACCESS_KEY_ID` etc. — never commit real values.
