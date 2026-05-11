@@ -27,7 +27,15 @@ vi.mock("@octokit/rest", () => ({
         get: async () => {
           if (!mockState.hasRepoAccess)
             throw Object.assign(new Error("Not found"), { status: 404 });
-          return { data: { permissions: { pull: true, push: mockState.hasWriteAccess, admin: false } } };
+          return {
+            data: {
+              permissions: {
+                pull: true,
+                push: mockState.hasWriteAccess,
+                admin: false,
+              },
+            },
+          };
         },
       },
     };
@@ -100,13 +108,15 @@ describe("extractToken", () => {
 
 function makeApp() {
   const app = new Hono<AppEnv>();
-  app.use("/:owner/:repo/*", authMiddleware);
-  app.get("/:owner/:repo/", (c) => c.json({ ok: true, user: c.get("user"), access: c.get("access") }));
+  app.use("/lfs/:owner/:repo/*", authMiddleware);
+  app.get("/lfs/:owner/:repo/", (c) =>
+    c.json({ ok: true, user: c.get("user"), access: c.get("access") }),
+  );
   return app;
 }
 
 const app = makeApp();
-const REPO_URL = "http://w/alice/repo/";
+const REPO_URL = "http://w/lfs/alice/repo/";
 
 function basic(username: string, password: string) {
   return `Basic ${btoa(`${username}:${password}`)}`;
@@ -193,7 +203,7 @@ describe("authMiddleware", () => {
     });
 
     test("strips .git from repo name before checking GitHub", async () => {
-      const res = await app.request("http://w/alice/repo.git/", {
+      const res = await app.request("http://w/lfs/alice/repo.git/", {
         headers: { Authorization: basic("alice", "ghp_valid_token") },
       });
       expect(res.status).toBe(200);

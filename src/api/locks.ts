@@ -13,102 +13,114 @@ import type { LockRow } from "../db/locks";
 // https://github.com/git-lfs/git-lfs/blob/main/docs/api/locking.md
 // -----------------------------------------------------------------------------
 
-export function initLocksApi(app: Hono<AppEnv>) {
-  // ---------------------------------------------------------------------------
-  // POST /:owner/:repo/locks — Create Lock
-  // ---------------------------------------------------------------------------
-  app.post(
-    "/:owner/:repo/locks",
-    sValidator("json", createLockRequestSchema, (r, c) => {
-      if (!r.success) return c.json({ message: "Invalid request" }, 422);
-    }),
-    async (c) => {
-      if (c.get("access") !== "write") {
-        return c.json({ message: "You must have push access to create a lock" }, 403);
-      }
-      const body = c.req.valid("json");
-      const user = c.get("user");
-      const stub = getLocksStub(c);
-      const existing = await stub.getByPath(body.path);
-      if (existing) {
-        return c.json(
-          { lock: toApiLock(existing), message: "already created lock" },
-          409,
-        );
-      }
-      const created = await stub.create(user, body.path);
-      return c.json({ lock: toApiLock(created) }, 201);
-    },
-  );
+export const locksApi = new Hono<AppEnv>();
 
-  // ---------------------------------------------------------------------------
-  // GET /:owner/:repo/locks — List Locks
-  // ---------------------------------------------------------------------------
-  app.get("/:owner/:repo/locks", async (c) => {
-    const { page, next_cursor } = await listLocks(c, {
-      uuidFilter: c.req.query("id") ?? null,
-      pathFilter: c.req.query("path") ?? null,
-      cursor: c.req.query("cursor") ?? null,
-      limit: parseInt(c.req.query("limit") ?? "0", 10),
-    });
+// ---------------------------------------------------------------------------
+// POST /:owner/:repo/locks — Create Lock
+// ---------------------------------------------------------------------------
+locksApi.post(
+  "/:owner/:repo/locks",
+  sValidator("json", createLockRequestSchema, (r, c) => {
+    if (!r.success) return c.json({ message: "Invalid request" }, 422);
+  }),
+  async (c) => {
+    if (c.get("access") !== "write") {
+      return c.json(
+        { message: "You must have push access to create a lock" },
+        403,
+      );
+    }
+    const body = c.req.valid("json");
+    const user = c.get("user");
+    const stub = getLocksStub(c);
+    const existing = await stub.getByPath(body.path);
+    if (existing) {
+      return c.json(
+        { lock: toApiLock(existing), message: "already created lock" },
+        409,
+      );
+    }
+    const created = await stub.create(user, body.path);
+    return c.json({ lock: toApiLock(created) }, 201);
+  },
+);
 
-    return c.json({ locks: page.map(toApiLock), next_cursor });
+// ---------------------------------------------------------------------------
+// GET /:owner/:repo/locks — List Locks
+// ---------------------------------------------------------------------------
+locksApi.get("/:owner/:repo/locks", async (c) => {
+  const { page, next_cursor } = await listLocks(c, {
+    uuidFilter: c.req.query("id") ?? null,
+    pathFilter: c.req.query("path") ?? null,
+    cursor: c.req.query("cursor") ?? null,
+    limit: parseInt(c.req.query("limit") ?? "0", 10),
   });
 
-  // ---------------------------------------------------------------------------
-  // POST /:owner/:repo/locks/verify — Verify Locks (pre-push)
-  // ---------------------------------------------------------------------------
-  app.post(
-    "/:owner/:repo/locks/verify",
-    sValidator("json", lockVerifyRequestSchema.catch({})),
-    async (c) => {
-      if (c.get("access") !== "write") {
-        return c.json({ message: "You must have push access to verify locks" }, 403);
-      }
-      const body = c.req.valid("json");
-      const user = c.get("user");
+  return c.json({ locks: page.map(toApiLock), next_cursor });
+});
 
-      const { page, next_cursor } = await listLocks(c, {
-        pathFilter: null,
-        uuidFilter: null,
-        cursor: body.cursor ?? null,
-        limit: body.limit ?? 0,
-      });
+// ---------------------------------------------------------------------------
+// POST /:owner/:repo/locks/verify — Verify Locks (pre-push)
+// ---------------------------------------------------------------------------
+locksApi.post(
+  "/:owner/:repo/locks/verify",
+  sValidator("json", lockVerifyRequestSchema.catch({})),
+  async (c) => {
+    if (c.get("access") !== "write") {
+      return c.json(
+        { message: "You must have push access to verify locks" },
+        403,
+      );
+    }
+    const body = c.req.valid("json");
+    const user = c.get("user");
 
-      return c.json({
-        ours: page.filter((r) => r.owner === user).map(toApiLock),
-        theirs: page.filter((r) => r.owner !== user).map(toApiLock),
-        next_cursor,
-      });
-    },
-  );
+    const { page, next_cursor } = await listLocks(c, {
+      pathFilter: null,
+      uuidFilter: null,
+      cursor: body.cursor ?? null,
+      limit: body.limit ?? 0,
+    });
 
-  // ---------------------------------------------------------------------------
-  // POST /:owner/:repo/locks/:id/unlock — Delete Lock
-  // ---------------------------------------------------------------------------
-  app.post(
-    "/:owner/:repo/locks/:id/unlock",
-    sValidator("json", unlockRequestSchema.catch({})),
-    async (c) => {
-      if (c.get("access") !== "write") {
-        return c.json({ message: "You must have push access to delete locks" }, 403);
-      }
-      const body = c.req.valid("json");
-      const uuid = c.req.param("id");
-      const user = c.get("user");
+    return c.json({
+      ours: page.filter((r) => r.owner === user).map(toApiLock),
+      theirs: page.filter((r) => r.owner !== user).map(toApiLock),
+      next_cursor,
+    });
+  },
+);
 
-      const stub = getLocksStub(c);
-      const lock = uuid ? await stub.getById(uuid) : null;
-      if (!lock) return c.json({ message: "Lock not found" }, 404);
-      if (lock.owner !== user && !body.force) {
-        return c.json({ message: "You must have push access to delete locks" }, 403);
-      }
+// ---------------------------------------------------------------------------
+// POST /:owner/:repo/locks/:id/unlock — Delete Lock
+// ---------------------------------------------------------------------------
+locksApi.post(
+  "/:owner/:repo/locks/:id/unlock",
+  sValidator("json", unlockRequestSchema.catch({})),
+  async (c) => {
+    if (c.get("access") !== "write") {
+      return c.json(
+        { message: "You must have push access to delete locks" },
+        403,
+      );
+    }
+    const body = c.req.valid("json");
+    const uuid = c.req.param("id");
+    const user = c.get("user");
 
-      await stub.delete(uuid);
-      return c.json({ lock: toApiLock(lock) });
-    },
-  );
-}
+    const stub = getLocksStub(c);
+    const lock = uuid ? await stub.getById(uuid) : null;
+    if (!lock) return c.json({ message: "Lock not found" }, 404);
+    if (lock.owner !== user && !body.force) {
+      return c.json(
+        { message: "You must have push access to delete locks" },
+        403,
+      );
+    }
+
+    await stub.delete(uuid);
+    return c.json({ lock: toApiLock(lock) });
+  },
+);
 
 function getLocksStub(c: Context<AppEnv>) {
   const owner = c.req.param("owner");

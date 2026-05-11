@@ -7,7 +7,7 @@ afterEach(async () => {
 });
 
 import { Hono } from "hono";
-import { initLocksApi } from "../../src/api/locks";
+import { locksApi } from "../../src/api/locks";
 import type { AppEnv } from "../../src/index";
 
 function makeApp(user: string, access: "read" | "write" = "write") {
@@ -17,7 +17,7 @@ function makeApp(user: string, access: "read" | "write" = "write") {
     c.set("access", access);
     await next();
   });
-  initLocksApi(app);
+  app.route("/lfs", locksApi);
   return app;
 }
 
@@ -41,7 +41,7 @@ function locksStub(repo: string) {
 describe("createLockHandler", () => {
   test("201 and returns lock with owner.name on success", async () => {
     const res = await alice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       {
         method: "POST",
         headers: LFS,
@@ -65,7 +65,7 @@ describe("createLockHandler", () => {
       "assets/file-a.bin",
     );
     const res = await alice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       {
         method: "POST",
         headers: LFS,
@@ -82,7 +82,7 @@ describe("createLockHandler", () => {
   test("different repos can lock the same path independently", async () => {
     await locksStub("alice/repo").create("alice", "assets/file-a.bin");
     const res = await alice.request(
-      "http://w/alice/other-repo/locks",
+      "http://w/lfs/alice/other-repo/locks",
       {
         method: "POST",
         headers: LFS,
@@ -96,7 +96,7 @@ describe("createLockHandler", () => {
   test("strips .git from repo name", async () => {
     await locksStub("alice/repo").create("alice", "assets/file-a.bin");
     const res = await alice.request(
-      "http://w/alice/repo.git/locks",
+      "http://w/lfs/alice/repo.git/locks",
       {
         method: "POST",
         headers: LFS,
@@ -109,7 +109,7 @@ describe("createLockHandler", () => {
 
   test("400 for invalid body", async () => {
     const res = await alice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       { method: "POST", headers: LFS, body: "bad" },
       env,
     );
@@ -118,7 +118,7 @@ describe("createLockHandler", () => {
 
   test("422 when path is missing", async () => {
     const res = await alice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       { method: "POST", headers: LFS, body: JSON.stringify({}) },
       env,
     );
@@ -127,8 +127,12 @@ describe("createLockHandler", () => {
 
   test("403 when read-only user attempts to create a lock", async () => {
     const res = await readAlice.request(
-      "http://w/alice/repo/locks",
-      { method: "POST", headers: LFS, body: JSON.stringify({ path: "file.bin" }) },
+      "http://w/lfs/alice/repo/locks",
+      {
+        method: "POST",
+        headers: LFS,
+        body: JSON.stringify({ path: "file.bin" }),
+      },
       env,
     );
     expect(res.status).toBe(403);
@@ -142,7 +146,7 @@ describe("createLockHandler", () => {
 describe("listLocksHandler", () => {
   test("returns empty array when no locks exist", async () => {
     const res = await alice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       { headers: LFS },
       env,
     );
@@ -156,7 +160,7 @@ describe("listLocksHandler", () => {
     await stub.create("alice", "assets/file-a.bin");
     await stub.create("bob", "assets/file-b.bin");
     const res = await alice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       { headers: LFS },
       env,
     );
@@ -169,7 +173,7 @@ describe("listLocksHandler", () => {
     const aliceLock = await stub.create("alice", "assets/file-a.bin");
     await stub.create("bob", "assets/file-b.bin");
     const res = await alice.request(
-      `http://w/alice/repo/locks?path=${encodeURIComponent(aliceLock.path)}`,
+      `http://w/lfs/alice/repo/locks?path=${encodeURIComponent(aliceLock.path)}`,
       { headers: LFS },
       env,
     );
@@ -183,7 +187,7 @@ describe("listLocksHandler", () => {
     const aliceLock = await stub.create("alice", "assets/file-a.bin");
     await stub.create("bob", "assets/file-b.bin");
     const res = await alice.request(
-      `http://w/alice/repo/locks?id=${aliceLock.uuid}`,
+      `http://w/lfs/alice/repo/locks?id=${aliceLock.uuid}`,
       { headers: LFS },
       env,
     );
@@ -198,7 +202,7 @@ describe("listLocksHandler", () => {
       "assets/file-a.bin",
     );
     const res = await alice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       { headers: LFS },
       env,
     );
@@ -214,7 +218,7 @@ describe("listLocksHandler", () => {
     await locksStub("alice/repo").create("alice", "assets/file-a.bin");
     await locksStub("alice/other").create("alice", "assets/file-a.bin");
     const res = await alice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       { headers: LFS },
       env,
     );
@@ -229,7 +233,7 @@ describe("listLocksHandler", () => {
     await stub.create("alice", "c.bin");
 
     const page1 = await alice.request(
-      "http://w/alice/repo/locks?limit=2",
+      "http://w/lfs/alice/repo/locks?limit=2",
       { headers: LFS },
       env,
     );
@@ -238,7 +242,7 @@ describe("listLocksHandler", () => {
     expect(body1.next_cursor).toBeDefined();
 
     const page2 = await alice.request(
-      `http://w/alice/repo/locks?cursor=${body1.next_cursor}`,
+      `http://w/lfs/alice/repo/locks?cursor=${body1.next_cursor}`,
       { headers: LFS },
       env,
     );
@@ -253,7 +257,7 @@ describe("listLocksHandler", () => {
   test("pagination: no next_cursor when results fit within limit", async () => {
     await locksStub("alice/repo").create("alice", "a.bin");
     const res = await alice.request(
-      "http://w/alice/repo/locks?limit=10",
+      "http://w/lfs/alice/repo/locks?limit=10",
       { headers: LFS },
       env,
     );
@@ -269,7 +273,7 @@ describe("listLocksHandler", () => {
 
     // Determine actual sort order by fetching all locks upfront
     const allRes = await alice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       { headers: LFS },
       env,
     );
@@ -279,7 +283,7 @@ describe("listLocksHandler", () => {
 
     // Alice fetches page 1; next_cursor points to the second lock
     const page1Res = await alice.request(
-      "http://w/alice/repo/locks?limit=1",
+      "http://w/lfs/alice/repo/locks?limit=1",
       { headers: LFS },
       env,
     );
@@ -288,14 +292,14 @@ describe("listLocksHandler", () => {
 
     // Bob deletes the lock that alice's cursor points to
     await bob.request(
-      `http://w/alice/repo/locks/${second.id}/unlock`,
+      `http://w/lfs/alice/repo/locks/${second.id}/unlock`,
       { method: "POST", headers: LFS, body: JSON.stringify({ force: true }) },
       env,
     );
 
     // Alice uses the cursor; page 2 should return the third lock without crashing
     const page2Res = await alice.request(
-      `http://w/alice/repo/locks?cursor=${page1.next_cursor}`,
+      `http://w/lfs/alice/repo/locks?cursor=${page1.next_cursor}`,
       { headers: LFS },
       env,
     );
@@ -307,7 +311,7 @@ describe("listLocksHandler", () => {
 
   test("200 when read-only user lists locks", async () => {
     const res = await readAlice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       { headers: LFS },
       env,
     );
@@ -321,7 +325,7 @@ describe("listLocksHandler", () => {
     await stub.create("alice", "c.bin");
 
     const page1 = await alice.request(
-      "http://w/alice/repo/locks?limit=1",
+      "http://w/lfs/alice/repo/locks?limit=1",
       { headers: LFS },
       env,
     );
@@ -331,7 +335,7 @@ describe("listLocksHandler", () => {
     } = (await page1.json()) as any;
 
     const page2 = await alice.request(
-      `http://w/alice/repo/locks?cursor=${next_cursor}`,
+      `http://w/lfs/alice/repo/locks?cursor=${next_cursor}`,
       { headers: LFS },
       env,
     );
@@ -352,7 +356,7 @@ describe("verifyLocksHandler", () => {
     const bobLock = await stub.create("bob", "assets/file-b.bin");
 
     const res = await alice.request(
-      "http://w/alice/repo/locks/verify",
+      "http://w/lfs/alice/repo/locks/verify",
       { method: "POST", headers: LFS, body: JSON.stringify({}) },
       env,
     );
@@ -366,7 +370,7 @@ describe("verifyLocksHandler", () => {
 
   test("ours and theirs are empty when no locks exist", async () => {
     const res = await alice.request(
-      "http://w/alice/repo/locks/verify",
+      "http://w/lfs/alice/repo/locks/verify",
       { method: "POST", headers: LFS, body: JSON.stringify({}) },
       env,
     );
@@ -382,7 +386,7 @@ describe("verifyLocksHandler", () => {
     await stub.create("alice", "c.bin");
 
     const res = await alice.request(
-      "http://w/alice/repo/locks/verify",
+      "http://w/lfs/alice/repo/locks/verify",
       { method: "POST", headers: LFS, body: JSON.stringify({ limit: 2 }) },
       env,
     );
@@ -394,7 +398,7 @@ describe("verifyLocksHandler", () => {
   test("accepts empty JSON body", async () => {
     await locksStub("alice/repo").create("alice", "assets/file-a.bin");
     const res = await alice.request(
-      "http://w/alice/repo/locks/verify",
+      "http://w/lfs/alice/repo/locks/verify",
       { method: "POST", headers: LFS, body: "{}" },
       env,
     );
@@ -403,7 +407,7 @@ describe("verifyLocksHandler", () => {
 
   test("403 when read-only user attempts to verify locks", async () => {
     const res = await readAlice.request(
-      "http://w/alice/repo/locks/verify",
+      "http://w/lfs/alice/repo/locks/verify",
       { method: "POST", headers: LFS, body: "{}" },
       env,
     );
@@ -422,7 +426,7 @@ describe("unlockHandler", () => {
       "assets/file-a.bin",
     );
     const res = await alice.request(
-      `http://w/alice/repo/locks/${lock.uuid}/unlock`,
+      `http://w/lfs/alice/repo/locks/${lock.uuid}/unlock`,
       { method: "POST", headers: LFS, body: "{}" },
       env,
     );
@@ -433,7 +437,7 @@ describe("unlockHandler", () => {
 
   test("404 when lock does not exist", async () => {
     const res = await alice.request(
-      "http://w/alice/repo/locks/nonexistent/unlock",
+      "http://w/lfs/alice/repo/locks/nonexistent/unlock",
       { method: "POST", headers: LFS, body: "{}" },
       env,
     );
@@ -446,7 +450,7 @@ describe("unlockHandler", () => {
       "assets/file-a.bin",
     );
     const res = await bob.request(
-      `http://w/alice/repo/locks/${lock.uuid}/unlock`,
+      `http://w/lfs/alice/repo/locks/${lock.uuid}/unlock`,
       { method: "POST", headers: LFS, body: "{}" },
       env,
     );
@@ -459,7 +463,7 @@ describe("unlockHandler", () => {
       "assets/file-a.bin",
     );
     const res = await bob.request(
-      `http://w/alice/repo/locks/${lock.uuid}/unlock`,
+      `http://w/lfs/alice/repo/locks/${lock.uuid}/unlock`,
       { method: "POST", headers: LFS, body: JSON.stringify({ force: true }) },
       env,
     );
@@ -472,7 +476,7 @@ describe("unlockHandler", () => {
       "assets/file-a.bin",
     );
     const res = await alice.request(
-      `http://w/alice/other-repo/locks/${lock.uuid}/unlock`,
+      `http://w/lfs/alice/other-repo/locks/${lock.uuid}/unlock`,
       { method: "POST", headers: LFS, body: "{}" },
       env,
     );
@@ -480,9 +484,12 @@ describe("unlockHandler", () => {
   });
 
   test("403 when read-only user attempts to unlock", async () => {
-    const lock = await locksStub("alice/repo").create("alice", "assets/file-a.bin");
+    const lock = await locksStub("alice/repo").create(
+      "alice",
+      "assets/file-a.bin",
+    );
     const res = await readAlice.request(
-      `http://w/alice/repo/locks/${lock.uuid}/unlock`,
+      `http://w/lfs/alice/repo/locks/${lock.uuid}/unlock`,
       { method: "POST", headers: LFS, body: "{}" },
       env,
     );
@@ -496,13 +503,13 @@ describe("unlockHandler", () => {
     );
 
     await alice.request(
-      `http://w/alice/repo/locks/${lock.uuid}/unlock`,
+      `http://w/lfs/alice/repo/locks/${lock.uuid}/unlock`,
       { method: "POST", headers: LFS, body: "{}" },
       env,
     );
 
     const listRes = await alice.request(
-      "http://w/alice/repo/locks",
+      "http://w/lfs/alice/repo/locks",
       { headers: LFS },
       env,
     );

@@ -1,6 +1,6 @@
 import { describe, test, expect } from "vitest";
 import { Hono } from "hono";
-import { initObjectsApi } from "../../src/api/objects";
+import { objectsApi } from "../../src/api/objects";
 import { ObjectsStorage } from "../../src/storage/objects";
 import type { AppEnv } from "../../src/index";
 
@@ -16,12 +16,12 @@ function makeEnv() {
 
 function makeApp(access: "read" | "write" = "write") {
   const app = new Hono<AppEnv>();
-  app.use("/:owner/:repo/*", (c, next) => {
+  app.use("/lfs/:owner/:repo/*", (c, next) => {
     c.set("access", access);
     c.set("objects", new ObjectsStorage(c.env));
     return next();
   });
-  initObjectsApi(app);
+  app.route("/lfs", objectsApi);
   return app;
 }
 
@@ -39,7 +39,7 @@ const app = makeApp();
 describe("batch upload", () => {
   test("new object returns upload and verify actions", async () => {
     const res = await app.request(
-      "http://worker/alice/repo/objects/batch",
+      "http://worker/lfs/alice/repo/objects/batch",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -61,7 +61,7 @@ describe("batch upload", () => {
 
   test("verify href uses request origin", async () => {
     const res = await app.request(
-      "http://worker/alice/repo/objects/batch",
+      "http://worker/lfs/alice/repo/objects/batch",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -74,7 +74,7 @@ describe("batch upload", () => {
     );
     const body = (await res.json()) as any;
     expect(body.objects[0].actions.verify.href).toBe(
-      "http://worker/alice/repo/objects/verify",
+      "http://worker/lfs/alice/repo/objects/verify",
     );
   });
 });
@@ -86,7 +86,7 @@ describe("batch upload", () => {
 describe("batch authorization", () => {
   test("403 when read-only user attempts upload", async () => {
     const res = await makeApp("read").request(
-      "http://worker/alice/repo/objects/batch",
+      "http://worker/lfs/alice/repo/objects/batch",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -102,7 +102,7 @@ describe("batch authorization", () => {
 
   test("read-only user can download", async () => {
     const res = await makeApp("read").request(
-      "http://worker/alice/repo/objects/batch",
+      "http://worker/lfs/alice/repo/objects/batch",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -124,7 +124,7 @@ describe("batch authorization", () => {
 describe("batch download", () => {
   test("missing object returns per-object 404 error", async () => {
     const res = await app.request(
-      "http://worker/alice/repo/objects/batch",
+      "http://worker/lfs/alice/repo/objects/batch",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -143,7 +143,7 @@ describe("batch download", () => {
 
   test("empty objects array returns empty objects", async () => {
     const res = await app.request(
-      "http://worker/alice/repo/objects/batch",
+      "http://worker/lfs/alice/repo/objects/batch",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -164,7 +164,7 @@ describe("batch download", () => {
 describe("request validation", () => {
   test("returns 400 for invalid JSON body", async () => {
     const res = await app.request(
-      "http://worker/alice/repo/objects/batch",
+      "http://worker/lfs/alice/repo/objects/batch",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -177,7 +177,7 @@ describe("request validation", () => {
 
   test("returns 422 when operation is unknown", async () => {
     const res = await app.request(
-      "http://worker/alice/repo/objects/batch",
+      "http://worker/lfs/alice/repo/objects/batch",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -190,7 +190,7 @@ describe("request validation", () => {
 
   test("returns 422 when objects is missing", async () => {
     const res = await app.request(
-      "http://worker/alice/repo/objects/batch",
+      "http://worker/lfs/alice/repo/objects/batch",
       {
         method: "POST",
         headers: LFS_HEADERS,

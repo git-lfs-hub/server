@@ -2,11 +2,11 @@ import { describe, test, expect } from "vitest";
 import { Hono } from "hono";
 
 import type { AppEnv } from "../../src/index";
-import { initObjectsApi } from "../../src/api/objects";
+import { objectsApi } from "../../src/api/objects";
 
 function makeApp(objects: Record<string, number> = {}) {
   const app = new Hono<AppEnv>();
-  app.use("/:owner/:repo/*", (c, next) => {
+  app.use("/lfs/:owner/:repo/*", (c, next) => {
     c.set("objects", {
       verifyObject: async (key: string, size?: number) => {
         if (!(key in objects)) return { message: "Object not found" };
@@ -17,7 +17,7 @@ function makeApp(objects: Record<string, number> = {}) {
     } as any);
     return next();
   });
-  initObjectsApi(app);
+  app.route("/lfs", objectsApi);
   return app;
 }
 
@@ -29,7 +29,7 @@ const LFS_HEADERS = {
 describe("verifyHandler", () => {
   test("200 when object exists and size matches", async () => {
     const res = await makeApp({ "alice/repo/abc123": 42 }).request(
-      "http://worker/alice/repo/objects/verify",
+      "http://worker/lfs/alice/repo/objects/verify",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -41,7 +41,7 @@ describe("verifyHandler", () => {
 
   test("422 when object does not exist", async () => {
     const res = await makeApp().request(
-      "http://worker/alice/repo/objects/verify",
+      "http://worker/lfs/alice/repo/objects/verify",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -54,7 +54,7 @@ describe("verifyHandler", () => {
 
   test("422 when size does not match", async () => {
     const res = await makeApp({ "alice/repo/abc123": 42 }).request(
-      "http://worker/alice/repo/objects/verify",
+      "http://worker/lfs/alice/repo/objects/verify",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -67,7 +67,7 @@ describe("verifyHandler", () => {
 
   test("strips .git suffix when checking key", async () => {
     const res = await makeApp({ "alice/repo/abc123": 42 }).request(
-      "http://worker/alice/repo.git/objects/verify",
+      "http://worker/lfs/alice/repo.git/objects/verify",
       {
         method: "POST",
         headers: LFS_HEADERS,
@@ -79,7 +79,7 @@ describe("verifyHandler", () => {
 
   test("400 for invalid JSON body", async () => {
     const res = await makeApp().request(
-      "http://worker/alice/repo/objects/verify",
+      "http://worker/lfs/alice/repo/objects/verify",
       { method: "POST", headers: LFS_HEADERS, body: "bad" },
     );
     expect(res.status).toBe(400);
@@ -87,7 +87,7 @@ describe("verifyHandler", () => {
 
   test("422 when oid is missing", async () => {
     const res = await makeApp().request(
-      "http://worker/alice/repo/objects/verify",
+      "http://worker/lfs/alice/repo/objects/verify",
       {
         method: "POST",
         headers: LFS_HEADERS,
