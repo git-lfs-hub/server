@@ -20,4 +20,4 @@ app.route("/lfs", lfsApi);
 export default app;
 
 // required for Wrangler
-export { RepoLocks } from "./db/locks";
+export { Locks } from "./db/locks";

@@ -6,7 +6,7 @@ import { locks } from "./_schema";
 
 export type LockRow = typeof locks.$inferSelect;
 
-export class RepoLocks extends DurableObject {
+export class Locks extends DurableObject {
   private db: DrizzleSqliteDODatabase;
 
   constructor(ctx: DurableObjectState, env: CloudflareBindings) {

@@ -26,19 +26,18 @@
     "bindings": [
       {
         "name": "LOCKS",
-        "class_name": "RepoLocks",
+        "class_name": "Locks",
       },
     ],
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["RepoLocks"],
+      "new_sqlite_classes": ["Locks"],
     },
   ],
   "vars": {
-    // Listed here only so cf-typegen generates the types.
-    "S3_ENDPOINT": "https://<cloudfare-account-id>.r2.cloudflarestorage.com",
+    "S3_ENDPOINT": "https://<your-account-id>.r2.cloudflarestorage.com",
     "S3_BUCKET_NAME": "lfs-objects",
     "S3_PRESIGN_TTL": "3600",
   },
