@@ -40,6 +40,8 @@
     "S3_ENDPOINT": "https://<your-account-id>.r2.cloudflarestorage.com",
     "S3_BUCKET_NAME": "lfs-objects",
     "S3_PRESIGN_TTL": "3600",
+    "GITHUB_APP_HOME": "https://lfs-server.<your-account-id>.workers.dev",
+    "GITHUB_ORG": "<your-github-org>",
   },
   "secrets": {
     "required": [
