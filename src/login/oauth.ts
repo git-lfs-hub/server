@@ -1,6 +1,8 @@
 import { Hono } from "hono";
+import { setCookie } from "hono/cookie";
 import type { AppEnv } from "../index";
 import { signState, verifyState, encryptCode } from "./utils";
+import { SESSION_COOKIE, SESSION_TTL } from "./web-auth";
 
 // ---------------------------------------------------------------------------
 // OAuth (browser) login flow
@@ -19,7 +21,7 @@ oauthApi.get("/authorize", async (c) => {
 
   if (!redirect_uri) return c.json({ error: "missing_redirect_uri" }, 400);
 
-  const callbackUrl = `${new URL(c.req.url).origin}/login/oauth/callback`;
+  const callbackUrl = `${c.env.GITHUB_APP_HOME}/login/oauth/callback`;
 
   const signedState = await signState(
     { redirect_uri, client_state: clientState ?? "", scopes: scope ?? "" },
@@ -56,7 +58,7 @@ oauthApi.get("/callback", async (c) => {
     client_id: c.env.GITHUB_CLIENT_ID,
     client_secret: c.env.GITHUB_CLIENT_SECRET,
     code: ghCode ?? "",
-    redirect_uri: `${new URL(c.req.url).origin}/login/oauth/callback`,
+    redirect_uri: `${c.env.GITHUB_APP_HOME}/login/oauth/callback`,
   });
 
   const res = await fetch("https://github.com/login/oauth/access_token", {
@@ -78,6 +80,14 @@ oauthApi.get("/callback", async (c) => {
   }
 
   const ephemeralCode = await encryptCode({ token: data.access_token }, c.env.LOGIN_SECRET);
+
+  setCookie(c, SESSION_COOKIE, await encryptCode({ token: data.access_token }, c.env.LOGIN_SECRET, SESSION_TTL), {
+    httpOnly: true,
+    sameSite: "Lax",
+    secure: true,
+    path: "/",
+    maxAge: SESSION_TTL,
+  });
 
   const redirectUrl = new URL(redirect_uri);
   redirectUrl.searchParams.set("code", ephemeralCode);

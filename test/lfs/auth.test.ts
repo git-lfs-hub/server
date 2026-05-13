@@ -10,6 +10,7 @@ const mockState = vi.hoisted(() => ({
   authenticated: true,
   hasRepoAccess: true,
   hasWriteAccess: true,
+  isMember: true,
   githubLogin: "alice",
 }));
 
@@ -36,6 +37,13 @@ vi.mock("@octokit/rest", () => ({
               },
             },
           };
+        },
+      },
+      orgs: {
+        getMembershipForAuthenticatedUser: async () => {
+          if (!mockState.isMember)
+            throw Object.assign(new Error("Not a member"), { status: 404 });
+          return { data: { state: "active" } };
         },
       },
     };
@@ -106,13 +114,17 @@ describe("extractToken", () => {
 // authMiddleware — HTTP-level tests via Hono's app.request()
 // ---------------------------------------------------------------------------
 
+const TEST_ENV = { GITHUB_ORG: "TestOrg" } as unknown as CloudflareBindings;
+
 function makeApp() {
-  const app = new Hono<AppEnv>();
-  app.use("/lfs/:owner/:repo/*", authMiddleware);
-  app.get("/lfs/:owner/:repo/", (c) =>
+  const hono = new Hono<AppEnv>();
+  hono.use("/lfs/:owner/:repo/*", authMiddleware);
+  hono.get("/lfs/:owner/:repo/", (c) =>
     c.json({ ok: true, user: c.get("user"), access: c.get("access") }),
   );
-  return app;
+  return {
+    request: (url: string, init?: RequestInit) => hono.request(url, init, TEST_ENV),
+  };
 }
 
 const app = makeApp();
@@ -127,6 +139,7 @@ describe("authMiddleware", () => {
     mockState.authenticated = true;
     mockState.hasRepoAccess = true;
     mockState.hasWriteAccess = true;
+    mockState.isMember = true;
     mockState.githubLogin = "alice";
   });
 
@@ -160,6 +173,14 @@ describe("authMiddleware", () => {
 
     test("rejects when GitHub says no read access to repo", async () => {
       mockState.hasRepoAccess = false;
+      const res = await app.request(REPO_URL, {
+        headers: { Authorization: basic("alice", "valid-token") },
+      });
+      expect(res.status).toBe(401);
+    });
+
+    test("rejects when user is not an org member", async () => {
+      mockState.isMember = false;
       const res = await app.request(REPO_URL, {
         headers: { Authorization: basic("alice", "valid-token") },
       });
