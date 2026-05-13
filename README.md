@@ -54,7 +54,7 @@ bun run dev
 [For generating/synchronizing types based on your Worker configuration run](https://developers.cloudflare.com/workers/wrangler/commands/#types):
 
 ```txt
-bun run cf-typegen
+bun run types
 ```
 
 Pass the `CloudflareBindings` as generics when instantiation `Hono`:

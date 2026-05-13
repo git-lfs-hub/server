@@ -1,3 +1,4 @@
+import { env } from "process";
 import { Hono } from "hono";
 
 import { loginApi } from "./login";
@@ -15,6 +16,19 @@ export type AppEnv = {
 };
 
 const app = new Hono<AppEnv>();
+
+if (env.SENTRY_DSN) {
+  const { sentry } = await import("@sentry/hono/cloudflare");
+  app.use(
+    sentry(app, {
+      dsn: env.SENTRY_DSN,
+      // Adds request headers and IP for users, for more info visit:
+      // https://docs.sentry.io/platforms/javascript/guides/hono/configuration/options/#sendDefaultPii
+      sendDefaultPii: true,
+    }),
+  );
+}
+
 app.route("/", loginApi);
 app.route("/lfs", lfsApi);
 app.get("/", webAuthMiddleware, (c) => c.env.ASSETS.fetch(c.req.raw));

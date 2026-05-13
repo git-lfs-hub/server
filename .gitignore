@@ -46,3 +46,6 @@ wrangler.jsonc
 !wrangler.jsonc.example
 
 worker-configuration.d.ts
+
+# Sentry Config File
+.sentryclirc
