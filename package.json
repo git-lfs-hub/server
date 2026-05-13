@@ -1,5 +1,5 @@
 {
-  "name": "lfs-server",
+  "name": "github-lfs-server",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
