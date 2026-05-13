@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { setCookie } from "hono/cookie";
 import type { AppEnv } from "../index";
+import type { CodePayload } from "./utils";
 import { signState, verifyState, encryptCode } from "./utils";
 import { SESSION_COOKIE, SESSION_TTL } from "./web-auth";
 
@@ -79,9 +80,12 @@ oauthApi.get("/callback", async (c) => {
     return c.redirect(errUrl.toString(), 302);
   }
 
-  const ephemeralCode = await encryptCode({ token: data.access_token }, c.env.LOGIN_SECRET);
+  const tokenPayload: CodePayload = { token: data.access_token };
+  if (typeof data.refresh_token === "string") tokenPayload.refresh_token = data.refresh_token;
 
-  setCookie(c, SESSION_COOKIE, await encryptCode({ token: data.access_token }, c.env.LOGIN_SECRET, SESSION_TTL), {
+  const ephemeralCode = await encryptCode(tokenPayload, c.env.LOGIN_SECRET);
+
+  setCookie(c, SESSION_COOKIE, await encryptCode(tokenPayload, c.env.LOGIN_SECRET, SESSION_TTL), {
     httpOnly: true,
     sameSite: "Lax",
     secure: true,

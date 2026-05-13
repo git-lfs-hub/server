@@ -8,6 +8,7 @@ export interface StatePayload {
 
 export interface CodePayload {
   token: string;
+  refresh_token?: string;
 }
 
 function keyBytes(secret: string): Uint8Array {
@@ -63,7 +64,9 @@ export async function decryptCode(
 ): Promise<CodePayload | null> {
   try {
     const { payload } = await jwtDecrypt(token, keyBytes(secret));
-    return { token: payload.token as string };
+    const result: CodePayload = { token: payload.token as string };
+    if (typeof payload.refresh_token === "string") result.refresh_token = payload.refresh_token;
+    return result;
   } catch {
     return null;
   }

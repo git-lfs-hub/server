@@ -13,6 +13,15 @@ tokenApi.post("/access_token", async (c) => {
   const form = await c.req.parseBody();
   const deviceCode = form["device_code"];
   const code = form["code"];
+  const refreshToken = form["refresh_token"];
+
+  if (typeof refreshToken === "string") {
+    return handleRefreshGrant(
+      c.env.GITHUB_CLIENT_ID,
+      c.env.GITHUB_CLIENT_SECRET,
+      refreshToken,
+    );
+  }
 
   if (typeof deviceCode === "string") {
     return handleDeviceGrant(
@@ -29,6 +38,7 @@ tokenApi.post("/access_token", async (c) => {
       access_token: payload.token,
       token_type: "bearer",
       scope: "",
+      ...(payload.refresh_token ? { refresh_token: payload.refresh_token } : {}),
     });
   }
 
@@ -45,6 +55,36 @@ async function handleDeviceGrant(
     client_id: clientId,
     client_secret: clientSecret,
     device_code: deviceCode,
+  });
+
+  const res = await fetch("https://github.com/login/oauth/access_token", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/x-www-form-urlencoded",
+      Accept: "application/json",
+    },
+    body: upstream,
+  });
+
+  const body = await res.text();
+  return new Response(body, {
+    status: res.status,
+    headers: {
+      "Content-Type": res.headers.get("Content-Type") ?? "application/json",
+    },
+  });
+}
+
+async function handleRefreshGrant(
+  clientId: string,
+  clientSecret: string,
+  refreshToken: string,
+): Promise<Response> {
+  const upstream = new URLSearchParams({
+    grant_type: "refresh_token",
+    client_id: clientId,
+    client_secret: clientSecret,
+    refresh_token: refreshToken,
   });
 
   const res = await fetch("https://github.com/login/oauth/access_token", {

@@ -32,6 +32,12 @@ wrangler secret put GITHUB_CLIENT_SECRET   # paste the Client Secret from GitHub
 wrangler secret put LOGIN_SECRET           # run: openssl rand -hex 32
 ```
 
+## Test
+
+```sh
+bun run test
+```
+
 ## Deploy
 
 ```sh

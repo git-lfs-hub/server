@@ -101,6 +101,35 @@ describe("POST /login/oauth/access_token — device code grant", () => {
   });
 });
 
+describe("POST /login/oauth/access_token — refresh token grant", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  test("proxies refresh_token to GitHub", async () => {
+    const spy = mockGitHub({ access_token: "ghu_new", refresh_token: "ghr_new", token_type: "bearer" });
+    const res = await post({ refresh_token: "ghr_old" });
+    expect(res.status).toBe(200);
+    const params = sentParams(spy);
+    expect(params.get("grant_type")).toBe("refresh_token");
+    expect(params.get("refresh_token")).toBe("ghr_old");
+    expect(params.get("client_id")).toBe("test-client-id");
+    expect(params.get("client_secret")).toBe("test-client-secret");
+  });
+
+  test("passes GitHub response through verbatim", async () => {
+    const token = { access_token: "ghu_new", refresh_token: "ghr_new", token_type: "bearer" };
+    mockGitHub(token);
+    const res = await post({ refresh_token: "ghr_old" });
+    expect(await res.json()).toEqual(token);
+  });
+
+  test("targets the correct GitHub endpoint", async () => {
+    const spy = mockGitHub({ access_token: "ghu_new" });
+    await post({ refresh_token: "ghr_old" });
+    const [url] = spy.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://github.com/login/oauth/access_token");
+  });
+});
+
 describe("POST /login/oauth/access_token — auth code grant", () => {
   test("returns token when ephemeral code is valid", async () => {
     const code = await encryptCode({ token: "ghu_real" }, LOGIN_SECRET);
@@ -110,6 +139,22 @@ describe("POST /login/oauth/access_token — auth code grant", () => {
     expect(body.access_token).toBe("ghu_real");
     expect(body.token_type).toBe("bearer");
     expect(body.scope).toBe("");
+  });
+
+  test("includes refresh_token when ephemeral code contains one", async () => {
+    const code = await encryptCode({ token: "ghu_real", refresh_token: "ghr_abc" }, LOGIN_SECRET);
+    const res = await post({ code });
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.access_token).toBe("ghu_real");
+    expect(body.refresh_token).toBe("ghr_abc");
+  });
+
+  test("omits refresh_token when ephemeral code does not contain one", async () => {
+    const code = await encryptCode({ token: "ghu_real" }, LOGIN_SECRET);
+    const res = await post({ code });
+    const body = await res.json() as any;
+    expect(body.refresh_token).toBeUndefined();
   });
 
   test("returns 400 for a tampered ephemeral code", async () => {

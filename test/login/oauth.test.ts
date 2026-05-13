@@ -155,6 +155,34 @@ describe("GET /callback", () => {
     expect(decoded!.token).toBe("ghu_real_token");
   });
 
+  test("stores refresh_token in ephemeral code when GitHub returns one", async () => {
+    const signedState = await makeSignedState();
+    mockGitHub({ access_token: "ghu_real_token", refresh_token: "ghr_refresh" });
+
+    const res = await get(
+      `/callback?code=gh_code&state=${encodeURIComponent(signedState)}`,
+    );
+    const location = new URL(res.headers.get("Location")!);
+    const ephemeralCode = location.searchParams.get("code")!;
+
+    const decoded = await decryptCode(ephemeralCode, LOGIN_SECRET);
+    expect(decoded!.refresh_token).toBe("ghr_refresh");
+  });
+
+  test("omits refresh_token in ephemeral code when GitHub does not return one", async () => {
+    const signedState = await makeSignedState();
+    mockGitHub({ access_token: "ghu_real_token" });
+
+    const res = await get(
+      `/callback?code=gh_code&state=${encodeURIComponent(signedState)}`,
+    );
+    const location = new URL(res.headers.get("Location")!);
+    const ephemeralCode = location.searchParams.get("code")!;
+
+    const decoded = await decryptCode(ephemeralCode, LOGIN_SECRET);
+    expect(decoded!.refresh_token).toBeUndefined();
+  });
+
   test("preserves client state in redirect", async () => {
     const signedState = await makeSignedState("http://127.0.0.1:8080/", "xyz789");
     mockGitHub({ access_token: "ghu_token" });
