@@ -36,6 +36,7 @@ lerna-debug.log*
 
 # misc
 .DS_Store
+*.bak
 
 # wrangler settings
 .dev.vars*
@@ -44,6 +45,7 @@ lerna-debug.log*
 
 wrangler.jsonc
 !wrangler.jsonc.example
+!test/wrangler.jsonc
 
 worker-configuration.d.ts
 
