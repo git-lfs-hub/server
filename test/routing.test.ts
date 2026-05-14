@@ -101,6 +101,36 @@ describe("objects routes", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Org alias — /:org/:repo/* should behave identically to /lfs/:org/:repo/*
+// when :org matches GITHUB_ORG, and 404 otherwise.
+// ---------------------------------------------------------------------------
+
+describe("org alias routes", () => {
+  const lfs = { Accept: LFS_CT };
+  const env = {
+    GITHUB_ORG: "Test-Org",
+    GITHUB_APP_HOME: "https://test.example.com",
+    GITHUB_CLIENT_ID: "test-client-id",
+    GITHUB_CLIENT_SECRET: "test-secret",
+  };
+
+  test("alias with correct org enforces auth (not 404)", async () => {
+    const res = await app.request("http://w/Test-Org/repo/locks", { headers: lfs }, env);
+    expect(res.status).toBe(401);
+  });
+
+  test("alias requires LFS Accept header", async () => {
+    const res = await app.request("http://w/Test-Org/repo/locks", {}, env);
+    expect(res.status).toBe(404);
+  });
+
+  test("alias with wrong org falls through to web auth (302)", async () => {
+    const res = await app.request("http://w/other-org/repo/locks", { headers: lfs }, env);
+    expect(res.status).toBe(302);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Login routes — confirm all families are reachable through the main app.
 // Tests pick inputs that return deterministic non-404 responses without
 // triggering any outbound fetch calls.

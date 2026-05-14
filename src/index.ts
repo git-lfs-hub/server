@@ -31,8 +31,17 @@ if (env.SENTRY_DSN) {
 
 app.route("/", loginApi);
 app.route("/lfs", lfsApi);
-app.get("/", webAuthMiddleware, (c) => c.env.ASSETS.fetch(c.req.raw));
-app.get("/*", (c) => c.env.ASSETS.fetch(c.req.raw));
+
+if (env.GITHUB_ORG) {
+  app.all(`/${env.GITHUB_ORG}/:repo/*`, (c) => {
+    const url = new URL(c.req.url);
+    url.pathname = "/lfs" + url.pathname;
+    let ctx: ExecutionContext | undefined;
+    try { ctx = c.executionCtx; } catch {}
+    return app.fetch(new Request(url, c.req.raw), c.env, ctx);
+  });
+}
+app.get("/*", webAuthMiddleware, (c) => c.env.ASSETS.fetch(c.req.raw));
 
 export default app;
 
