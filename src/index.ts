@@ -1,5 +1,5 @@
-import { env } from "process";
 import { Hono } from "hono";
+import { sentry } from "@sentry/hono/cloudflare";
 
 import { loginApi } from "./login";
 import { lfsApi } from "./lfs";
@@ -17,31 +17,22 @@ export type AppEnv = {
 
 const app = new Hono<AppEnv>();
 
-if (env.SENTRY_DSN) {
-  const { sentry } = await import("@sentry/hono/cloudflare");
-  app.use(
-    sentry(app, {
-      dsn: env.SENTRY_DSN,
-      // Adds request headers and IP for users, for more info visit:
-      // https://docs.sentry.io/platforms/javascript/guides/hono/configuration/options/#sendDefaultPii
-      sendDefaultPii: true,
-    }),
-  );
-}
+// Options callback reads SENTRY_DSN from Worker bindings per-request.
+// Sentry is a no-op when DSN is not configured.
+app.use(sentry(app, (env) => ({ dsn: env?.SENTRY_DSN, sendDefaultPii: true })));
 
 app.route("/", loginApi);
 app.route("/lfs", lfsApi);
 
-if (env.GITHUB_ORG) {
-  app.all(`/${env.GITHUB_ORG}/:repo/*`, (c) => {
-    const url = new URL(c.req.url);
-    url.pathname = "/lfs" + url.pathname;
-    return app.fetch(new Request(url, c.req.raw), c.env, executionCtx());
-    function executionCtx() {
-      try { return c.executionCtx; } catch { return undefined; }
-    }
-  });
-}
+app.all("/:org/:repo/*", (c, next) => {
+  if (!c.env.GITHUB_ORG || c.req.param("org") !== c.env.GITHUB_ORG) return next();
+  const url = new URL(c.req.url);
+  url.pathname = "/lfs" + url.pathname;
+  return app.fetch(new Request(url, c.req.raw), c.env, executionCtx());
+  function executionCtx() {
+    try { return c.executionCtx; } catch { return undefined; }
+  }
+});
 app.get("/*", webAuthMiddleware, (c) => c.env.ASSETS.fetch(c.req.raw));
 
 export default app;
