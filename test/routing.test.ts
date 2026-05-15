@@ -128,6 +128,21 @@ describe("org alias routes", () => {
     const res = await app.request("http://w/other-org/repo/locks", { headers: lfs }, env);
     expect(res.status).toBe(302);
   });
+
+  // Regression: the alias must read c.env.GITHUB_ORG per-request, not
+  // process.env.GITHUB_ORG at module-init. In the test environment
+  // process.env.GITHUB_ORG is "Test-Org" (from test/wrangler.jsonc vars).
+  // Passing a *different* org via c.env and hitting that org's path must
+  // still be aliased — it would 302 (fall-through) if the route were
+  // registered from process.env at startup.
+  test("alias resolves org from c.env, not process.env", async () => {
+    const res = await app.request(
+      "http://w/Different-Org/repo/locks",
+      { headers: lfs },
+      { ...env, GITHUB_ORG: "Different-Org" },
+    );
+    expect(res.status).toBe(401);
+  });
 });
 
 // ---------------------------------------------------------------------------
