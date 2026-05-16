@@ -4,7 +4,10 @@
   "scripts": {
     "types": "wrangler types --env-interface CloudflareBindings",
     "test": "vitest run",
+    "test:unit": "vitest run --project unit",
+    "test:integration": "vitest run --project 'integration*'",
     "test:watch": "vitest watch",
+    "presign:spec": "bash scripts/presign-spec/regenerate.sh",
     "dev": "wrangler dev",
     "build": "wrangler deploy --dry-run --outdir dist",
     "deploy": "wrangler deploy --minify --outdir dist $(scripts/sentry-wrangler-args.sh)",
@@ -16,12 +19,11 @@
     "node": "^26.1.0"
   },
   "dependencies": {
-    "@aws-sdk/client-s3": "^3.1045.0",
-    "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@hono/standard-validator": "^0.2.2",
     "@octokit/rest": "^22.0.1",
     "@sentry/cloudflare": "^10.53.1",
     "@sentry/hono": "^10.53.1",
+    "aws4fetch": "^1.0.20",
     "drizzle-orm": "^0.45.2",
     "hono": "^4.12.18",
     "jose": "^6.2.3",

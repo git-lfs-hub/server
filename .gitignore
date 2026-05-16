@@ -48,7 +48,7 @@ lerna-debug.log*
 
 wrangler.jsonc
 !wrangler.jsonc.example
-!test/wrangler.jsonc
+!test/**/wrangler.jsonc
 
 worker-configuration.d.ts
 

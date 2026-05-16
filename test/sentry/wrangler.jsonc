@@ -1,12 +1,12 @@
 {
-  "$schema": "../node_modules/wrangler/config-schema.json",
-  "name": "lfs-server",
-  "main": "./main.ts",
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "lfs-server-sentry-test",
+  "main": "../../src/index.ts",
   "compatibility_date": "2026-05-08",
   "compatibility_flags": ["nodejs_compat"],
   "assets": {
     "binding": "ASSETS",
-    "directory": "public",
+    "directory": "../../public",
     "run_worker_first": true,
   },
   "r2_buckets": [
@@ -43,6 +43,6 @@
     "GITHUB_ORG": "Test-Org",
     "GITHUB_CLIENT_ID": "test-client-id",
     "GITHUB_CLIENT_SECRET": "test-client-secret",
-    "LOGIN_SECRET": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "SENTRY_DSN": "https://test@test.ingest.sentry.io/1",
   },
 }

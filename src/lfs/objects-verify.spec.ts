@@ -1,8 +1,8 @@
 import { describe, test, expect } from "vitest";
 import { Hono } from "hono";
 
-import type { AppEnv } from "../../src/index";
-import { objectsApi } from "../../src/lfs/objects";
+import type { AppEnv } from "../app";
+import { objectsApi } from "./objects";
 
 function makeApp(objects: Record<string, number> = {}) {
   const app = new Hono<AppEnv>();
