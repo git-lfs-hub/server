@@ -1,0 +1,16 @@
+{
+  "description": "expected* = production presign (aws4fetch). referenceAwsSdk* = @aws-sdk/s3-request-presigner for the same frozen clock (PUT may differ due to SDK checksum middleware).",
+  "frozenDatetime": "20200101T000000Z",
+  "config": {
+    "S3_ENDPOINT": "https://test-account.r2.cloudflarestorage.com",
+    "S3_ACCESS_KEY_ID": "test-key-id",
+    "S3_SECRET_ACCESS_KEY": "test-secret",
+    "S3_BUCKET_NAME": "lfs-objects",
+    "S3_PRESIGN_TTL": "3600",
+    "KEY": "alice/repo/abc123def456"
+  },
+  "expectedPutPresignedUrl": "https://test-account.r2.cloudflarestorage.com/lfs-objects/alice/repo/abc123def456?X-Amz-Expires=3600&X-Amz-Date=20200101T000000Z&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test-key-id%2F20200101%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=e8a211eaf84206c1ee3cfcebc318c1375244536d95f4c4f8338bdc0e3a51be74",
+  "expectedGetPresignedUrl": "https://test-account.r2.cloudflarestorage.com/lfs-objects/alice/repo/abc123def456?X-Amz-Expires=3600&X-Amz-Date=20200101T000000Z&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=test-key-id%2F20200101%2Fauto%2Fs3%2Faws4_request&X-Amz-SignedHeaders=host&X-Amz-Signature=e9503502ea709667488490e735b01f784686d571b1e8221b97636e5050372290",
+  "referenceAwsSdkPutPresignedUrl": "https://test-account.r2.cloudflarestorage.com/lfs-objects/alice/repo/abc123def456?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=test-key-id%2F20200101%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20200101T000000Z&X-Amz-Expires=3600&X-Amz-Signature=8225148f692c3650f99a92519b0ee31736e2957164656210a6f4053a4d6f3b83&X-Amz-SignedHeaders=host&x-amz-checksum-crc32=AAAAAA%3D%3D&x-amz-sdk-checksum-algorithm=CRC32&x-id=PutObject",
+  "referenceAwsSdkGetPresignedUrl": "https://test-account.r2.cloudflarestorage.com/lfs-objects/alice/repo/abc123def456?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Content-Sha256=UNSIGNED-PAYLOAD&X-Amz-Credential=test-key-id%2F20200101%2Fauto%2Fs3%2Faws4_request&X-Amz-Date=20200101T000000Z&X-Amz-Expires=3600&X-Amz-Signature=6f27ac19e4196cc2d17a4a5863a5d890d891374339df749aae91daeed44c00d8&X-Amz-SignedHeaders=host&x-amz-checksum-mode=ENABLED&x-id=GetObject"
+}

@@ -1,5 +1,5 @@
 import { test, expect, describe } from "vitest";
-import app from "../src/index";
+import app from "../../src/index";
 
 // ---------------------------------------------------------------------------
 // Regression: sentry() was guarded by `if (process.env.SENTRY_DSN)` at module

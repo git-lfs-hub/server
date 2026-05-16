@@ -2,9 +2,43 @@ import { cloudflareTest } from "@cloudflare/vitest-pool-workers";
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
-  plugins: [
-    cloudflareTest({
-      wrangler: { configPath: "./test/wrangler.jsonc" },
-    }),
-  ],
+  test: {
+    projects: [
+      {
+        test: {
+          name: "unit",
+          include: ["src/**/*.spec.ts"],
+          environment: "node",
+        },
+      },
+      {
+        plugins: [
+          cloudflareTest({
+            wrangler: { configPath: "./test/wrangler.jsonc" },
+          }),
+        ],
+        test: {
+          name: "integration",
+          include: ["test/**/*.test.ts"],
+          exclude: ["test/sentry/**"],
+          // vitest-pool-workers cold-starts can exceed 5s on the first fetches.
+          testTimeout: 20_000,
+          hookTimeout: 20_000,
+        },
+      },
+      {
+        plugins: [
+          cloudflareTest({
+            wrangler: { configPath: "./test/sentry/wrangler.jsonc" },
+          }),
+        ],
+        test: {
+          name: "integration-sentry",
+          include: ["test/sentry/**/*.test.ts"],
+          testTimeout: 20_000,
+          hookTimeout: 20_000,
+        },
+      },
+    ],
+  },
 });

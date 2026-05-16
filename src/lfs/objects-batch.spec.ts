@@ -1,11 +1,13 @@
 import { describe, test, expect } from "vitest";
 import { Hono } from "hono";
-import { objectsApi } from "../../src/lfs/objects";
-import { ObjectsStorage } from "../../src/storage/objects";
-import type { AppEnv } from "../../src/index";
+import { objectsApi } from "./objects";
+import { ObjectsStorage } from "../storage/objects";
+import type { AppEnv } from "../app";
+import { emptyR2Bucket } from "../test/r2-bucket-mock";
 
 function makeEnv() {
   return {
+    LFS_BUCKET: emptyR2Bucket(),
     S3_ENDPOINT: "https://test-account.r2.cloudflarestorage.com",
     S3_ACCESS_KEY_ID: "test-key",
     S3_SECRET_ACCESS_KEY: "test-secret",
