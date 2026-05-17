@@ -6,6 +6,8 @@ import {
   decryptCode,
   type StatePayload,
   type CodePayload,
+  parseGithubList,
+  ownersFromEnv,
 } from "./utils";
 
 // 64 hex chars = 32 bytes, valid for both HS256 and AES-256-GCM
@@ -99,5 +101,98 @@ describe("encryptCode / decryptCode", () => {
 
   test("returns null for empty string", async () => {
     expect(await decryptCode("", SECRET)).toBeNull();
+  });
+});
+
+describe("parseGithubList", () => {
+  test("returns empty array for undefined", () => {
+    expect(parseGithubList(undefined)).toEqual([]);
+  });
+
+  test("returns empty array for empty string", () => {
+    expect(parseGithubList("")).toEqual([]);
+  });
+
+  test("returns empty array for whitespace-only string", () => {
+    expect(parseGithubList("   ")).toEqual([]);
+  });
+
+  test("splits on comma", () => {
+    expect(parseGithubList("foo,bar")).toEqual(["foo", "bar"]);
+  });
+
+  test("splits on semicolon", () => {
+    expect(parseGithubList("foo;bar")).toEqual(["foo", "bar"]);
+  });
+
+  test("splits on space", () => {
+    expect(parseGithubList("foo bar")).toEqual(["foo", "bar"]);
+  });
+
+  test("collapses consecutive separators", () => {
+    expect(parseGithubList("foo,,; bar")).toEqual(["foo", "bar"]);
+  });
+
+  test("trims leading and trailing separators", () => {
+    expect(parseGithubList(" foo ")).toEqual(["foo"]);
+  });
+
+  test("handles mixed separators", () => {
+    expect(parseGithubList("alice,bob; carol")).toEqual([
+      "alice",
+      "bob",
+      "carol",
+    ]);
+  });
+});
+
+describe("ownersFromEnv", () => {
+  test("GITHUB_OWNERS overrides GITHUB_ORGS and GITHUB_ORG", () => {
+    const result = ownersFromEnv({
+      GITHUB_OWNERS: "alice bob",
+      GITHUB_ORGS: "other",
+      GITHUB_ORG: "another",
+    });
+    expect(result).toEqual(new Set(["alice", "bob"]));
+  });
+
+  test("GITHUB_ORGS and GITHUB_ORG are merged when GITHUB_OWNERS is absent", () => {
+    const result = ownersFromEnv({ GITHUB_ORGS: "foo bar", GITHUB_ORG: "baz" });
+    expect(result).toEqual(new Set(["foo", "bar", "baz"]));
+  });
+
+  test("GITHUB_ORG used as singleton fallback", () => {
+    const result = ownersFromEnv({ GITHUB_ORG: "MyOrg" });
+    expect(result).toEqual(new Set(["MyOrg"]));
+  });
+
+  test("names preserve original case (callers lowercase before comparing)", () => {
+    const result = ownersFromEnv({ GITHUB_ORG: "MyOrg" });
+    expect(result.has("MyOrg")).toBe(true);
+    expect(result.has("myorg")).toBe(false);
+  });
+
+  test("GITHUB_ORGS with two entries produces two-entry set", () => {
+    const result = ownersFromEnv({ GITHUB_ORGS: "foo bar" });
+    expect(result).toEqual(new Set(["foo", "bar"]));
+  });
+
+  test("throws when no owners are configured", () => {
+    expect(() => ownersFromEnv({})).toThrow();
+  });
+
+  test("throws when GITHUB_ORG is whitespace-only", () => {
+    expect(() => ownersFromEnv({ GITHUB_ORG: "   " })).toThrow();
+  });
+
+  test("all three vars empty still throws", () => {
+    expect(() =>
+      ownersFromEnv({ GITHUB_OWNERS: "", GITHUB_ORGS: "", GITHUB_ORG: "" }),
+    ).toThrow();
+  });
+
+  test("empty GITHUB_OWNERS falls through to GITHUB_ORGS", () => {
+    const result = ownersFromEnv({ GITHUB_OWNERS: "", GITHUB_ORGS: "myorg" });
+    expect(result).toEqual(new Set(["myorg"]));
   });
 });

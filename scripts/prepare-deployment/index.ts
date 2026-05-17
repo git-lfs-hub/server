@@ -7,23 +7,16 @@
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
-import Handlebars from "handlebars";
+import { buildVars, renderTemplate } from "./lib";
 
 const cwd = process.cwd();
 
-const varsPath = resolve(cwd, "vars.json");
-let vars = JSON.parse(readFileSync(varsPath, "utf8"));
-
-const compile = (source: string) =>
-  Handlebars.compile(source, { strict: true, noEscape: true });
+const vars = buildVars(JSON.parse(readFileSync(resolve(cwd, "vars.json"), "utf8")));
 
 const render = (templateRel: string, outRel: string) => {
-  const templatePath = resolve(cwd, templateRel);
-  const outPath = resolve(cwd, outRel);
-  const templateSource = readFileSync(templatePath, "utf8");
-  let output = compile(templateSource)(vars);
-  writeFileSync(outPath, output, "utf8");
-  console.log(`Wrote ${outPath}`);
+  const output = renderTemplate(readFileSync(resolve(cwd, templateRel), "utf8"), vars);
+  writeFileSync(resolve(cwd, outRel), output, "utf8");
+  console.log(`Wrote ${resolve(cwd, outRel)}`);
 };
 
 render("wrangler.template.jsonc", "wrangler.jsonc");
