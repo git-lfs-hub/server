@@ -4,17 +4,31 @@ A [Git LFS](https://git-lfs.com/) server running as a Cloudflare Worker. Stores 
 
 ## Setup
 
-### 1. Copy the example config
+### 0. Install Dependencies and create `vars.json`
+
+Install dependencies:
 
 ```sh
-cp wrangler.jsonc.example wrangler.jsonc
+bun install
 ```
 
-Edit `wrangler.jsonc` and fill in:
-- `S3_ENDPOINT` — `https://<your-account-id>.r2.cloudflarestorage.com`
-- `S3_BUCKET_NAME` — your R2 bucket name
-- `GITHUB_APP_HOME` — your worker URL
-- `GITHUB_ORG` — your GitHub org
+Create a `vars.json` file in the repository root (gitignored), for example:
+
+```json
+{
+  "org-name": "<user-friendly-name>",
+  "github-org": "<your-github-org>",
+  "cloudflare-account-id": "<your-cloudflare-account-id>",
+}
+```
+
+### 1. Generate deployment files
+
+Generate (gitignored) `wrangler.jsonc` and `github-app.md` from `wrangler.template.jsonc` and `github-app.template.md`:
+
+```sh
+scripts/run.sh prepare-deployment
+```
 
 ### 2. Create an R2 API token
 
@@ -29,9 +43,7 @@ wrangler secret put S3_SECRET_ACCESS_KEY  # R2 Secret Access Key
 
 ### 3. Register a GitHub OAuth App
 
-Go to https://github.com/settings/applications/new:
-- **Homepage URL**: `https://<your-worker-domain>`
-- **Authorization callback URL**: `https://<your-worker-domain>/login/oauth/callback`
+Follow the generated **`github-app.md`** (from **`github-app.template.md`**) to register your GitHub OAuth app.
 
 ```sh
 wrangler secret put GITHUB_CLIENT_ID      # Client ID from GitHub
@@ -41,10 +53,18 @@ wrangler secret put LOGIN_SECRET          # run: openssl rand -hex 32
 
 ## Deploy
 
+### Locally
+
+After `vars.json` exists and secrets are set:
+
 ```sh
-bun install
 bun run deploy
 ```
+
+### GitHub Actions
+
+* Set a repository variable **`VARS_JSON`** to your `vars.json` content.
+* Set a `CLOUDFLARE_API_TOKEN` secret to your Cloudflare token.
 
 ## Development
 
