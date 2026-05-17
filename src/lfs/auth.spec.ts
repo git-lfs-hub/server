@@ -1,18 +1,18 @@
 import { vi, describe, test, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
-import type { AppEnv } from "../../src/index";
+import type { AppEnv } from "../app";
 
 // ---------------------------------------------------------------------------
 // Octokit mock — must be set up before auth.ts is imported
 // ---------------------------------------------------------------------------
 
-const mockState = vi.hoisted(() => ({
+const mockState = {
   authenticated: true,
   hasRepoAccess: true,
   hasWriteAccess: true,
   isMember: true,
   githubLogin: "alice",
-}));
+};
 
 vi.mock("@octokit/rest", () => ({
   Octokit: class {
@@ -50,7 +50,7 @@ vi.mock("@octokit/rest", () => ({
   },
 }));
 
-import { authMiddleware, extractToken } from "../../src/lfs/auth";
+const { authMiddleware, extractToken } = await import("./auth");
 
 // ---------------------------------------------------------------------------
 // extractToken — pure function tests, no app needed
