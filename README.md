@@ -4,22 +4,30 @@ A [Git LFS](https://git-lfs.com/) server running as a Cloudflare Worker. Stores 
 
 ## Setup
 
-### 1. Generate `wrangler.jsonc`
+### 0. Install Dependencies and create `vars.json`
+
+Install dependencies:
+
+```sh
+bun install
+```
 
 Create a `vars.json` file in the repository root (gitignored), for example:
 
 ```json
 {
+  "org-name": "<user-friendly-name>",
+  "github-org": "<your-github-org>",
   "cloudflare-account-id": "<your-cloudflare-account-id>",
-  "github-org": "<your-github-org>"
 }
 ```
 
-Install dependencies and run `scripts/run.sh` to create (gitignored) `wrangler.jsonc`:
+### 1. Generate deployment files
+
+Generate (gitignored) `wrangler.jsonc` and `github-app.md` from `wrangler.template.jsonc` and `github-app.template.md`:
 
 ```sh
-bun install
-scripts/run.sh create-wrangler-json
+scripts/run.sh prepare-deployment
 ```
 
 ### 2. Create an R2 API token
@@ -35,9 +43,7 @@ wrangler secret put S3_SECRET_ACCESS_KEY  # R2 Secret Access Key
 
 ### 3. Register a GitHub OAuth App
 
-Go to https://github.com/settings/applications/new:
-- **Homepage URL**: `https://<your-worker-domain>`
-- **Authorization callback URL**: `https://<your-worker-domain>/login/oauth/callback`
+Follow the generated **`github-app.md`** (from **`github-app.template.md`**) to register your GitHub OAuth app.
 
 ```sh
 wrangler secret put GITHUB_CLIENT_ID      # Client ID from GitHub
@@ -47,14 +53,18 @@ wrangler secret put LOGIN_SECRET          # run: openssl rand -hex 32
 
 ## Deploy
 
-Locally (after `vars.json` exists and secrets are set):
+### Locally
+
+After `vars.json` exists and secrets are set:
 
 ```sh
-bun install
 bun run deploy
 ```
 
-For **GitHub Actions** (`workflow_dispatch` in `.github/workflows/deploy.yml`), set a repository variable **`VARS_JSON`** to the same JSON you would put in `vars.json`. The workflow writes it to `vars.json` before rendering `wrangler.jsonc`.
+### GitHub Actions
+
+* Set a repository variable **`VARS_JSON`** to your `vars.json` content.
+* Set a `CLOUDFLARE_API_TOKEN` secret to your Cloudflare token.
 
 ## Development
 

@@ -46,8 +46,8 @@ lerna-debug.log*
 !.env.example
 
 wrangler.jsonc
+github-app.md
 vars.json
-!wrangler.template.jsonc
 !test/**/wrangler.jsonc
 
 worker-configuration.d.ts

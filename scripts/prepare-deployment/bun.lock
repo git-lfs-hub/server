@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "@github-lfs-server/create-wrangler-json",
+      "name": "@github-lfs-server/prepare-deployment",
       "dependencies": {
         "handlebars": "^4.7.8",
       },

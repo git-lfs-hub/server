@@ -1,5 +1,5 @@
 {
-  "name": "@github-lfs-server/create-wrangler-json",
+  "name": "@github-lfs-server/prepare-deployment",
   "private": true,
   "type": "module",
   "scripts": {

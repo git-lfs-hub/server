@@ -15,7 +15,7 @@ jobs:
         env:
           VARS_JSON: ${{ vars.VARS_JSON }}
 
-      - run: scripts/run.sh create-wrangler-json
+      - run: scripts/run.sh prepare-deployment
 
       - run: bun run deploy
         env:
