@@ -1,14 +1,14 @@
-# GitHub OAuth app — {{[org-name]}}
+# GitHub OAuth app — {{orgName}}
 
 Create an OAuth app at [https://github.com/settings/applications/new] (or your organization’s **Settings → Developer settings → OAuth Apps**).
 
 - **Application name**: for example:
   ```
-  {{org-name}} LFS Server
+  {{orgName}} LFS Server
   ```
 - **Homepage URL:** (matching `GITHUB_APP_HOME` in the generated `wrangler.jsonc`)
   ```
-  https://lfs-server.{{[cloudflare-account-slug]}}.workers.dev
+  https://lfs-server.{{cloudflareAccountSlug}}.workers.dev
   ```
 - **Application description**: for example:
   ```
@@ -16,7 +16,7 @@ Create an OAuth app at [https://github.com/settings/applications/new] (or your o
   ```
 - **Authorization callback URL:**
   ```
-  https://lfs-server.{{[cloudflare-account-slug]}}.workers.dev/login/oauth/callback
+  https://lfs-server.{{cloudflareAccountSlug}}.workers.dev/login/oauth/callback
   ```
 
 **Generate a new client secret**. After GitHub shows the client credentials, store them with Wrangler (**you won't see them again**):
@@ -26,4 +26,4 @@ wrangler secret put GITHUB_CLIENT_ID
 wrangler secret put GITHUB_CLIENT_SECRET
 ```
 
-LFS access is limited to org **`{{[github-org]}}`** (`GITHUB_ORG` in `wrangler.jsonc`).
+Access requires active membership in the configured GitHub org (`GITHUB_ORGS` in `wrangler.jsonc`). `GITHUB_USERS` further restricts access to specific GitHub logins.

@@ -6,6 +6,7 @@
     "test": "vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project 'integration*'",
+    "test:scripts": "vitest run --project 'scripts'",
     "test:watch": "vitest watch",
     "prepare-deployment": "./scripts/run.sh prepare-deployment",
     "build": "wrangler deploy --dry-run --outdir dist",

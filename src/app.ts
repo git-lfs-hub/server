@@ -3,6 +3,7 @@ import { Hono } from "hono";
 import { loginApi } from "./login";
 import { lfsApi } from "./lfs";
 import { webAuthMiddleware } from "./login/web-auth";
+import { ownersFromEnv } from "./login/utils";
 import { ObjectsStorage } from "./storage/objects";
 
 export type AppEnv = {
@@ -19,11 +20,16 @@ const app = new Hono<AppEnv>();
 app.route("/", loginApi);
 app.route("/lfs", lfsApi);
 
-app.all("/:org/:repo/*", (c, next) => {
-  if (!c.env.GITHUB_ORG || c.req.param("org").toLowerCase() !== c.env.GITHUB_ORG.toLowerCase()) return next();
+app.all("/:owner/:repo/*", (c, next) => {
+  const owner = c.req.param("owner").toLowerCase();
+  if (![...ownersFromEnv(c.env)].some((o) => o.toLowerCase() === owner))
+    return next();
   const url = new URL(c.req.url);
   url.pathname = "/lfs" + url.pathname;
-  let ctx; try { ctx = c.executionCtx; } catch {}
+  let ctx;
+  try {
+    ctx = c.executionCtx;
+  } catch {}
   return app.fetch(new Request(url, c.req.raw), c.env, ctx);
 });
 app.get("/*", webAuthMiddleware, (c) => c.env.ASSETS.fetch(c.req.raw));

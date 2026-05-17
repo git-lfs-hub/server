@@ -16,15 +16,31 @@ Create a `vars.json` file in the repository root (gitignored), for example:
 
 ```json
 {
-  "org-name": "<user-friendly-name>",
-  "github-org": "<your-github-org>",
-  "cloudflare-account-slug": "<cloudflare-account-slug>",
-  "cloudflare-account-id": "<your-cloudflare-account-id>"
+  "orgName": "<user-friendly-name>",
+  "githubOrgs": "<your-github-orgs>",
+  "cloudflareAccountSlug": "<cloudflare-account-slug>",
+  "cloudflareAccountId": "<your-cloudflare-account-id>"
 }
 ```
 
-* `cloudflare-account-slug` affects worker URLs (`GITHUB_APP_HOME`)
-* `cloudflare-account-affects` affects R2 bucket URLs (`S3_ENDPOINT`)
+or for personal account
+```json
+{
+  "orgName": "<user-friendly-name>",
+  "githubUsers": "<your-github-login>",
+  "githubOwners": "<your-github-login>",
+  "cloudflareAccountSlug": "<cloudflare-account-slug>",
+  "cloudflareAccountId": "<your-cloudflare-account-id>"
+}
+```
+
+* `cloudflareAccountSlug` — sets the worker URL prefix (`GITHUB_APP_HOME`)
+* `cloudflareAccountId` — sets the R2 bucket URL (`S3_ENDPOINT`)
+* `githubOrg[s]` — if specified, only active members have access; up to 5 total (`GITHUB_ORG[s]`)
+* `githubUsers` — restricts access further to these specific logins, on top of any org membership check (`GITHUB_USERS`)
+* `githubOwners` — owner names accepted in LFS URLs; overrides `githubOrg[s]` for routing but not for access (`GITHUB_OWNERS`)
+
+`githubOrg[s]`/`githubOwners` repos are served at `/<owner>/<repo>/`. At least one of `githubOrg[s]` or `githubOwners` must be set. List values (`githubOrgs`, `githubUsers`, `githubOwners`) accept a JSON array or a space- or comma-separated string.
 
 ### 1. Generate deployment files
 
