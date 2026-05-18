@@ -147,23 +147,24 @@ describe("parseGithubList", () => {
 });
 
 describe("ownersFromEnv", () => {
-  test("GITHUB_OWNERS overrides GITHUB_ORGS and GITHUB_ORG", () => {
-    const result = ownersFromEnv({
-      GITHUB_OWNERS: "alice bob",
-      GITHUB_ORGS: "other",
-      GITHUB_ORG: "another",
-    });
-    expect(result).toEqual(new Set(["alice", "bob"]));
-  });
-
-  test("GITHUB_ORGS and GITHUB_ORG are merged when GITHUB_OWNERS is absent", () => {
+  test("GITHUB_ORGS and GITHUB_ORG are merged", () => {
     const result = ownersFromEnv({ GITHUB_ORGS: "foo bar", GITHUB_ORG: "baz" });
     expect(result).toEqual(new Set(["foo", "bar", "baz"]));
   });
 
-  test("GITHUB_ORG used as singleton fallback", () => {
+  test("GITHUB_ORG alone", () => {
     const result = ownersFromEnv({ GITHUB_ORG: "MyOrg" });
     expect(result).toEqual(new Set(["MyOrg"]));
+  });
+
+  test("GITHUB_ORGS with two entries produces two-entry set", () => {
+    const result = ownersFromEnv({ GITHUB_ORGS: "foo bar" });
+    expect(result).toEqual(new Set(["foo", "bar"]));
+  });
+
+  test("GITHUB_USER fallback when no orgs set", () => {
+    const result = ownersFromEnv({ GITHUB_USER: "pasha" });
+    expect(result).toEqual(new Set(["pasha"]));
   });
 
   test("names preserve original case (callers lowercase before comparing)", () => {
@@ -172,27 +173,15 @@ describe("ownersFromEnv", () => {
     expect(result.has("myorg")).toBe(false);
   });
 
-  test("GITHUB_ORGS with two entries produces two-entry set", () => {
-    const result = ownersFromEnv({ GITHUB_ORGS: "foo bar" });
-    expect(result).toEqual(new Set(["foo", "bar"]));
-  });
-
-  test("throws when no owners are configured", () => {
+  test("throws when nothing configured", () => {
     expect(() => ownersFromEnv({})).toThrow();
   });
 
-  test("throws when GITHUB_ORG is whitespace-only", () => {
+  test("throws when GITHUB_ORG is whitespace-only and no user", () => {
     expect(() => ownersFromEnv({ GITHUB_ORG: "   " })).toThrow();
   });
 
-  test("all three vars empty still throws", () => {
-    expect(() =>
-      ownersFromEnv({ GITHUB_OWNERS: "", GITHUB_ORGS: "", GITHUB_ORG: "" }),
-    ).toThrow();
-  });
-
-  test("empty GITHUB_OWNERS falls through to GITHUB_ORGS", () => {
-    const result = ownersFromEnv({ GITHUB_OWNERS: "", GITHUB_ORGS: "myorg" });
-    expect(result).toEqual(new Set(["myorg"]));
+  test("all vars empty still throws", () => {
+    expect(() => ownersFromEnv({ GITHUB_ORGS: "", GITHUB_ORG: "", GITHUB_USER: "" })).toThrow();
   });
 });
