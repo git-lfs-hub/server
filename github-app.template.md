@@ -26,4 +26,4 @@ wrangler secret put GITHUB_CLIENT_ID
 wrangler secret put GITHUB_CLIENT_SECRET
 ```
 
-Access requires active membership in the configured GitHub org (`GITHUB_ORGS` in `wrangler.jsonc`). `GITHUB_USERS` further restricts access to specific GitHub logins.
+Access is controlled by `GITHUB_ORG`/`GITHUB_ORGS` (org mode — active members only) or `GITHUB_USER` (user mode — single login). Configure one or the other in `wrangler.jsonc`.

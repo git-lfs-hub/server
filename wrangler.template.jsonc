@@ -44,10 +44,8 @@
     "GITHUB_ORG": "{{github.org}}",
     // Optional: one or more owner/org slugs (alternative to GITHUB_ORG for multi-org setups).
     "GITHUB_ORGS": "{{github.orgs}}",
-    // Optional: comma/semicolon/space-separated GitHub logins allowed to access the dashboard.
-    "GITHUB_USERS": "{{github.users}}",
-    // Optional: override which :owner slugs are accepted in URLs (default: GITHUB_ORGS → GITHUB_ORG).
-    "GITHUB_OWNERS": "{{github.owners}}",
+    // Optional: single GitHub login for personal-account (user) mode.
+    "GITHUB_USER": "{{github.user}}",
     // Optional: Sentry organization slug for error tracking.
     "SENTRY_ORG": "{{sentry.org}}",
   },

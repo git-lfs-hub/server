@@ -87,21 +87,15 @@ export function orgsFromEnv(env: {
 }
 
 export function ownersFromEnv(env: {
-  GITHUB_OWNERS?: string;
   GITHUB_ORGS?: string;
   GITHUB_ORG?: string;
+  GITHUB_USER?: string;
 }): Set<string> {
-  const owners = parseGithubList(env.GITHUB_OWNERS);
-  if (owners.length) return new Set(owners);
-
-  const groups = orgsFromEnv(env);
-  if (groups.length) return new Set(groups);
-
-  throw new Error("Set GITHUB_OWNERS and/or GITHUB_ORG[S]");
-}
-
-export function usersFromEnv(env: { GITHUB_USERS?: string }): string[] {
-  return parseGithubList(env.GITHUB_USERS);
+  const orgs = orgsFromEnv(env);
+  if (orgs.length) return new Set(orgs);
+  const user = env.GITHUB_USER?.trim() || null;
+  if (user) return new Set([user]);
+  throw new Error("Set GITHUB_ORG[S] or GITHUB_USER");
 }
 
 export function parseGithubList(s: string | undefined): string[] {

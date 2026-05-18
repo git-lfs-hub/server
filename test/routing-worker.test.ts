@@ -15,25 +15,24 @@ describe("worker entry (test/main)", () => {
   });
 });
 
-describe("/:owner/:repo/* shim with GITHUB_OWNERS", () => {
-  // GITHUB_OWNERS is routing-only; GITHUB_USERS provides access control (required alongside GITHUB_OWNERS)
-  const ownersEnv = { ...env, GITHUB_OWNERS: "Test-Org", GITHUB_ORG: "", GITHUB_ORGS: "", GITHUB_USERS: "test-user" };
+describe("/:owner/:repo/* shim with GITHUB_USER (user mode)", () => {
+  const userEnv = { ...env, GITHUB_USER: "test-user", GITHUB_ORG: "", GITHUB_ORGS: "" };
 
-  test("rewrites matching owner to /lfs and returns LFS 401", async () => {
+  test("rewrites matching user owner to /lfs and returns LFS 401", async () => {
     const res = await app.fetch(
-      new Request("http://w/Test-Org/repo/info/lfs", { headers: { Accept: LFS_CT } }),
-      ownersEnv,
+      new Request("http://w/test-user/repo/info/lfs", { headers: { Accept: LFS_CT } }),
+      userEnv,
     );
     expect(res.status).toBe(401);
   });
 
   test("does not rewrite non-matching owner", async () => {
     const res = await app.fetch(
-      new Request("http://w/other-org/repo/info/lfs", {
+      new Request("http://w/other-user/repo/info/lfs", {
         headers: { Accept: LFS_CT },
         redirect: "manual",
       }),
-      ownersEnv,
+      userEnv,
     );
     expect(res.status).not.toBe(401);
   });

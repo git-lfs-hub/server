@@ -17,11 +17,6 @@ function request(env: Partial<CloudflareBindings>) {
 }
 
 describe("login config validation", () => {
-  test("GITHUB_OWNERS alone throws — no access control", async () => {
-    const res = await request({ GITHUB_OWNERS: "my-org" } as any);
-    expect(res.status).toBe(500);
-  });
-
   test("GITHUB_ORGS alone is valid", async () => {
     const res = await request({ GITHUB_ORGS: "my-org" } as any);
     expect(res.status).not.toBe(500);
@@ -32,17 +27,22 @@ describe("login config validation", () => {
     expect(res.status).not.toBe(500);
   });
 
-  test("GITHUB_USERS + GITHUB_OWNERS is valid", async () => {
-    const res = await request({ GITHUB_USERS: "alice", GITHUB_OWNERS: "alice" } as any);
+  test("GITHUB_USER alone is valid", async () => {
+    const res = await request({ GITHUB_USER: "alice" } as any);
     expect(res.status).not.toBe(500);
   });
 
-  test("GITHUB_USERS alone throws — no routing owners configured", async () => {
-    const res = await request({ GITHUB_USERS: "alice" } as any);
+  test("GITHUB_ORG + GITHUB_USER throws — conflicting config", async () => {
+    const res = await request({ GITHUB_ORG: "my-org", GITHUB_USER: "alice" } as any);
     expect(res.status).toBe(500);
   });
 
-  test("neither GITHUB_ORGS nor GITHUB_USERS nor GITHUB_OWNERS throws", async () => {
+  test("GITHUB_ORGS + GITHUB_USER throws — conflicting config", async () => {
+    const res = await request({ GITHUB_ORGS: "my-org", GITHUB_USER: "alice" } as any);
+    expect(res.status).toBe(500);
+  });
+
+  test("neither GITHUB_ORG[S] nor GITHUB_USER throws", async () => {
     const res = await request({} as any);
     expect(res.status).toBe(500);
   });

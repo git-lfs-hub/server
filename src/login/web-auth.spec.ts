@@ -147,20 +147,11 @@ describe("webAuthMiddleware", () => {
     });
   });
 
-  describe("GITHUB_USERS allowlist", () => {
-    // Both GITHUB_USERS and GITHUB_ORG configured: user must satisfy both gates.
-    const envBoth = {
+  describe("GITHUB_USER (user mode)", () => {
+    const envUser = {
       LOGIN_SECRET,
       GITHUB_APP_HOME: "https://example.com",
-      GITHUB_ORG: "TestOrg",
-      GITHUB_USERS: "carol",
-    } as unknown as CloudflareBindings;
-
-    // Only GITHUB_USERS configured (e.g. personal account): org gate is skipped.
-    const envUsersOnly = {
-      LOGIN_SECRET,
-      GITHUB_APP_HOME: "https://example.com",
-      GITHUB_USERS: "carol",
+      GITHUB_USER: "carol",
     } as unknown as CloudflareBindings;
 
     function appWith(env: unknown) {
@@ -171,46 +162,26 @@ describe("webAuthMiddleware", () => {
       return (url: string, init?: RequestInit) => hono.request(url, init, env);
     }
 
-    test("user in GITHUB_USERS and active org member is allowed", async () => {
-      mockState.githubLogin = "carol";
-      mockState.isMember = true;
-      const res = await appWith(envBoth)("http://w/", {
-        headers: { Cookie: await sessionCookie() },
-      });
-      expect(res.status).toBe(200);
-    });
-
-    test("user in GITHUB_USERS but not an org member is denied", async () => {
+    test("matching user is allowed without org check", async () => {
       mockState.githubLogin = "carol";
       mockState.isMember = false;
-      const res = await appWith(envBoth)("http://w/", {
-        headers: { Cookie: await sessionCookie() },
-      });
-      expect(res.status).toBe(403);
-    });
-
-    test("user not in GITHUB_USERS is denied even when an active org member", async () => {
-      mockState.githubLogin = "alice";
-      mockState.isMember = true;
-      const res = await appWith(envBoth)("http://w/", {
-        headers: { Cookie: await sessionCookie() },
-      });
-      expect(res.status).toBe(403);
-    });
-
-    test("GITHUB_USERS match is case-insensitive", async () => {
-      mockState.githubLogin = "Carol"; // matches "carol"
-      mockState.isMember = true;
-      const res = await appWith(envBoth)("http://w/", {
+      const res = await appWith(envUser)("http://w/", {
         headers: { Cookie: await sessionCookie() },
       });
       expect(res.status).toBe(200);
     });
 
-    test("GITHUB_USERS alone (no org configured) is sufficient for access", async () => {
-      mockState.githubLogin = "carol";
-      mockState.isMember = false; // would fail if org gate were checked
-      const res = await appWith(envUsersOnly)("http://w/", {
+    test("non-matching user is denied", async () => {
+      mockState.githubLogin = "alice";
+      const res = await appWith(envUser)("http://w/", {
+        headers: { Cookie: await sessionCookie() },
+      });
+      expect(res.status).toBe(403);
+    });
+
+    test("match is case-insensitive", async () => {
+      mockState.githubLogin = "Carol";
+      const res = await appWith(envUser)("http://w/", {
         headers: { Cookie: await sessionCookie() },
       });
       expect(res.status).toBe(200);
