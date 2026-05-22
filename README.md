@@ -1,3 +1,5 @@
+[![CodeQL](https://github.com/git-lfs-hub/server/actions/workflows/github-code-scanning/codeql/badge.svg)](https://github.com/git-lfs-hub/server/actions/workflows/github-code-scanning/codeql)
+
 # Git LFS Hub — server
 
 The Cloudflare Worker at the heart of [Git LFS Hub](https://github.com/git-lfs-hub) — a [Hono](https://hono.dev/) app implementing the full [Git LFS](https://git-lfs.com/) batch API, GitHub OAuth (web + device flow), presigned R2 URLs for object transfer, and a Durable Object lock store for [file locking](https://github.com/git-lfs/git-lfs/wiki/File-Locking).
