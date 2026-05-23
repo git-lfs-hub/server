@@ -185,3 +185,9 @@ describe("ownersFromEnv", () => {
     expect(() => ownersFromEnv({ GITHUB_ORGS: "", GITHUB_ORG: "", GITHUB_USER: "" })).toThrow();
   });
 });
+
+describe("keyBytes", () => {
+  test("throws when secret is empty", async () => {
+    await expect(signState(STATE, "")).rejects.toThrow("LOGIN_SECRET");
+  });
+});

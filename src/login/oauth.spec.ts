@@ -106,6 +106,14 @@ describe("GET /authorize", () => {
     const res = await get("/authorize?state=s");
     expect(res.status).toBe(400);
   });
+
+  test("defaults client_state to empty when state is not provided", async () => {
+    const res = await get("/authorize?redirect_uri=http://127.0.0.1:8080/&scope=repo");
+    const location = new URL(res.headers.get("Location")!);
+    const signedState = location.searchParams.get("state")!;
+    const payload = await verifyState(signedState, LOGIN_SECRET);
+    expect(payload!.client_state).toBe("");
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -215,6 +223,28 @@ describe("GET /callback", () => {
     const location = new URL(res.headers.get("Location")!);
     expect(location.origin + location.pathname).toBe("http://127.0.0.1:8080/");
     expect(location.searchParams.get("error")).toBe("bad_verification_code");
+  });
+
+  test("error redirect omits state when client_state is empty", async () => {
+    const signedState = await makeSignedState("http://127.0.0.1:8080/", "");
+    mockGitHub({ error: "bad_verification_code" });
+
+    const res = await get(
+      `/callback?code=bad&state=${encodeURIComponent(signedState)}`,
+    );
+    const location = new URL(res.headers.get("Location")!);
+    expect(location.searchParams.has("state")).toBe(false);
+  });
+
+  test("success redirect omits state when client_state is empty", async () => {
+    const signedState = await makeSignedState("http://127.0.0.1:8080/", "");
+    mockGitHub({ access_token: "ghu_token" });
+
+    const res = await get(
+      `/callback?code=gh_code&state=${encodeURIComponent(signedState)}`,
+    );
+    const location = new URL(res.headers.get("Location")!);
+    expect(location.searchParams.has("state")).toBe(false);
   });
 
   test("sends our client_id and client_secret to GitHub for code exchange", async () => {
