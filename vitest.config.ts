@@ -48,7 +48,7 @@ export default defineConfig({
       },
     ],
     coverage: {
-      provider: "v8", // or 'istanbul'
+      provider: "istanbul", // v8 isn't supported by vitest-pool-workers
     },
   },
 });
