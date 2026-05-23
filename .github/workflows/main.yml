@@ -16,7 +16,7 @@ jobs:
 
       - uses: git-lfs-hub/ci-cd/actions/init-bun@main
 
-      - run: bun run test --coverage
+      - run: bun run test-coverage
 
       - id: deployment
         uses: actions/upload-pages-artifact@v5
