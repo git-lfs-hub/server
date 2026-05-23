@@ -17,5 +17,5 @@ jobs:
 
       - run: bun run test-coverage
 
-      - name: Report PR Coverage
+      - name: Report Coverage
         uses: davelosert/vitest-coverage-report-action@v2
