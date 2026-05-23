@@ -63,11 +63,11 @@ bun run types     # regenerate worker-configuration.d.ts after changing wrangler
 
 With Cloudflare auth in place (`wrangler login` or `CLOUDFLARE_API_TOKEN`) and secrets applied (`wrangler secret put` for GitHub OAuth, R2 keys, `LOGIN_SECRET`, etc.), `bun run deploy` ships the Worker from this package. You own `public/` and binding definitions. Full releases that rebuild docs, render `vars`, and deploy in one step use **[git-lfs-hub/deploy](https://github.com/git-lfs-hub/deploy)** (`turbo deploy`).
 
-[ci-badge]: https://badgen.net/github/checks/git-lfs-hub/server/main/CI%20%2F%20Test?icon=vitest&label=CI
-[gh-wf-href]: https://github.com/git-lfs-hub/deploy/actions/workflows/main.yml
+[ci-badge]: https://badgen.net/github/checks/git-lfs-hub/server/main/Test?icon=vitest&label=CI
+[gh-wf-href]: https://github.com/git-lfs-hub/deploy/actions/workflows/main.yml?query=branch%3Amain
 
 [codeql-badge]: https://github.com/git-lfs-hub/server/actions/workflows/github-code-scanning/codeql/badge.svg
-[codeql-href]: https://github.com/git-lfs-hub/server/actions/workflows/github-code-scanning/codeql?query=branch%3Amain++
+[codeql-href]: https://github.com/git-lfs-hub/server/actions/workflows/github-code-scanning/codeql?query=branch%3Amain
 
 [socket-badge]: https://badgen.net/static/Socket/report/blue?icon=socket
 [socket-href]: https://socket.dev/dashboard/org/git-lfs-hub/repo/@git-lfs-hub/server
