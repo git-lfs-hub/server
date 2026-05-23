@@ -1,0 +1,12 @@
+name: Coverage Artifact
+description: Generate coverage badge and upload coverage/ as a Pages artifact.
+
+runs:
+  using: composite
+  steps:
+    - run: bun scripts/coverage-badge.ts
+      shell: bash
+
+    - id: deployment
+      uses: actions/upload-pages-artifact@v5
+      with: { path: ./coverage }
