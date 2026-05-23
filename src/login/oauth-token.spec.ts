@@ -99,6 +99,14 @@ describe("POST /login/oauth/access_token — device code grant", () => {
     const [url] = spy.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://github.com/login/oauth/access_token");
   });
+
+  test("defaults Content-Type to application/json when upstream omits it", async () => {
+    const upstream = new Response(JSON.stringify({ access_token: "ghu_abc" }), { status: 200 });
+    upstream.headers.delete("Content-Type");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(upstream);
+    const res = await post({ device_code: "dev123" });
+    expect(res.headers.get("Content-Type")).toBe("application/json");
+  });
 });
 
 describe("POST /login/oauth/access_token — refresh token grant", () => {
@@ -127,6 +135,14 @@ describe("POST /login/oauth/access_token — refresh token grant", () => {
     await post({ refresh_token: "ghr_old" });
     const [url] = spy.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://github.com/login/oauth/access_token");
+  });
+
+  test("defaults Content-Type to application/json when upstream omits it", async () => {
+    const upstream = new Response(JSON.stringify({ access_token: "ghu_new" }), { status: 200 });
+    upstream.headers.delete("Content-Type");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(upstream);
+    const res = await post({ refresh_token: "ghr_old" });
+    expect(res.headers.get("Content-Type")).toBe("application/json");
   });
 });
 

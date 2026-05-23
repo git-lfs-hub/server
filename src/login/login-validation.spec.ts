@@ -46,4 +46,20 @@ describe("login config validation", () => {
     const res = await request({} as any);
     expect(res.status).toBe(500);
   });
+
+  test("missing GITHUB_APP_HOME throws", async () => {
+    const app = new Hono<AppEnv>();
+    app.route("/", loginApi);
+    const env = { ...BASE, GITHUB_ORG: "my-org" } as any;
+    delete env.GITHUB_APP_HOME;
+    const res = await app.request("/api/v3/meta", {}, env);
+    expect(res.status).toBe(500);
+  });
+
+  test("more than 5 orgs throws", async () => {
+    const res = await request({
+      GITHUB_ORGS: "a,b,c,d,e,f",
+    } as any);
+    expect(res.status).toBe(500);
+  });
 });

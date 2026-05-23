@@ -88,4 +88,12 @@ describe("POST /device/code", () => {
     const [url] = spy.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://github.com/login/device/code");
   });
+
+  test("defaults Content-Type to application/json when upstream omits it", async () => {
+    const upstream = new Response(JSON.stringify(DEVICE_CODE_BODY), { status: 200 });
+    upstream.headers.delete("Content-Type");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(upstream);
+    const res = await post("repo");
+    expect(res.headers.get("Content-Type")).toBe("application/json");
+  });
 });

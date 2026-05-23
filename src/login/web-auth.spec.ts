@@ -188,6 +188,14 @@ describe("webAuthMiddleware", () => {
     });
   });
 
+  describe("localhost bypass", () => {
+    test("localhost requests skip auth entirely", async () => {
+      mockState.authenticated = false;
+      const res = await app.request("http://localhost/");
+      expect(res.status).toBe(200);
+    });
+  });
+
   describe("successful auth", () => {
     test("active member passes through with 200", async () => {
       const res = await app.request("http://w/", {

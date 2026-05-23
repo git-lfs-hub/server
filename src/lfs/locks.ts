@@ -126,6 +126,7 @@ function getLocksStub(c: Context<AppEnv>) {
   const owner = c.req.param("owner");
   const repo = c.req.param("repo");
   if (!owner || !repo) {
+    // istanbul ignore next -- defensive: guaranteed by /:owner/:repo/* route pattern
     throw new Error("Both owner and repo must be specified");
   }
   return c.env.LOCKS.getByName(repoKey(owner, repo));

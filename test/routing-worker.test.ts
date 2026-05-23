@@ -61,6 +61,18 @@ describe("/:owner/:repo/* shim with GITHUB_ORGS (no GITHUB_ORG)", () => {
   });
 });
 
+describe("catch-all static assets via ASSETS binding", () => {
+  test("localhost request bypasses auth and serves static asset", async () => {
+    const res = await app.fetch(
+      new Request("http://localhost/README.md"),
+      env,
+    );
+    expect(res.status).toBe(200);
+    const body = await res.text();
+    expect(body).toContain("test public");
+  });
+});
+
 describe("/:owner/:repo/* shim (test/wrangler GITHUB_ORG=Test-Org)", () => {
   test("rewrites matching owner to /lfs and returns LFS 401", async () => {
     // Test-Org matches effectiveOwners from GITHUB_ORG=Test-Org in test/wrangler.jsonc
