@@ -24,6 +24,7 @@ jobs:
 
   coverage:
     name: Deploy Coverage Pages
+    needs: test
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
