@@ -18,10 +18,10 @@ jobs:
 
       - run: bun run test-coverage
 
-      - uses: ./.github/actions/coverage-artifact
+      - uses: git-lfs-hub/ci-cd/actions/coverage-artifact@pasha/coverage
 
-  coverage:
+  coverage-pages:
     name: Coverage
     needs: test
-    uses: ./.github/workflows/coverage.yml
+    uses: git-lfs-hub/ci-cd/.github/workflows/coverage-pages.yml@pasha/coverage
     permissions: { contents: read, pages: write, id-token: write }
