@@ -69,7 +69,7 @@ With Cloudflare auth in place (`wrangler login` or `CLOUDFLARE_API_TOKEN`) and s
 [codeql-badge]: https://github.com/git-lfs-hub/server/actions/workflows/github-code-scanning/codeql/badge.svg
 [codeql-href]: https://github.com/git-lfs-hub/server/actions/workflows/github-code-scanning/codeql
 
-[socket-badge]: https://badgen.net/static/socket/report/blue?icon=socket
+[socket-badge]: https://badgen.net/static/Socket/report/blue?icon=socket
 [socket-href]: https://socket.dev/dashboard/org/git-lfs-hub/repo/@git-lfs-hub/server
 
 [license-badge]: https://badgen.net/github/license/git-lfs-hub/server
