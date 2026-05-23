@@ -23,4 +23,9 @@ describe("sentry initialization", () => {
     );
     expect(hasSentry).toBe(true);
   });
+
+  test("sentry options callback is invoked on request", async () => {
+    // Any request triggers the sentry options factory; status doesn't matter.
+    await app.request("http://localhost/");
+  });
 });

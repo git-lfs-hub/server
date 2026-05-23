@@ -45,7 +45,10 @@ export const authMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
 
   const owner = c.req.param("owner");
   const repo = c.req.param("repo")?.replace(/\.git$/, "");
-  if (!owner || !repo) return c.json(DENY, 401, DENY_HEADERS);
+  if (!owner || !repo) {
+    // istanbul ignore next -- defensive: guaranteed by /:owner/:repo/* route pattern
+    return c.json(DENY, 401, DENY_HEADERS);
+  }
 
   try {
     const octokit = new Octokit({ auth: extracted.token });

@@ -5,7 +5,7 @@
 
 # prod
 dist/
-public
+/public
 
 # dev
 .yarn/
