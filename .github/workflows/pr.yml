@@ -19,3 +19,6 @@ jobs:
 
       - name: Report Coverage
         uses: davelosert/vitest-coverage-report-action@v2
+        with:
+          file-coverage-mode: changes-affected
+          threshold-icons: "{80: '🟢', 60: '🟠', 40: '🟡', 0: '🔴'}"
