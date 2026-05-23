@@ -67,7 +67,7 @@ With Cloudflare auth in place (`wrangler login` or `CLOUDFLARE_API_TOKEN`) and s
 [ci-badge]: https://badgen.net/github/checks/git-lfs-hub/server/main?icon=vitest&label=CI
 [gh-wf-href]: https://github.com/git-lfs-hub/server/actions/workflows/main.yml?query=branch%3Amain
 
-[coverage-badge]: https://badgen.net/https/git-lfs-hub.github.io/server/?icon=vitest
+[coverage-badge]: https://badgen.net/https/git-lfs-hub.github.io/server/coverage-badge.json?icon=vitest
 [coverage-href]: https://git-lfs-hub.github.io/server/coverage
 
 [codeql-badge]: https://github.com/git-lfs-hub/server/actions/workflows/github-code-scanning/codeql/badge.svg
