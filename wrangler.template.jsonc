@@ -39,6 +39,13 @@
       "new_sqlite_classes": ["Locks"],
     },
   ],
+  "services": [
+    {
+      "binding": "LFS_GC",
+      "entrypoint": "AdminEntrypoint",
+      "service": "{{cloudflare.gc.workerName}}",
+    },
+  ],
   "vars": {
     "S3_ENDPOINT": "{{s3.endpoint}}",
     "S3_BUCKET_NAME": "{{s3.bucket}}",

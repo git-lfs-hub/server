@@ -11,6 +11,12 @@ import { batchRequestSchema, verifyRequestSchema } from "./_schema";
 
 export const objectsApi = new Hono<AppEnv>();
 
+type GcIngest = (p: { owner: string; repo: string; oid: string; size: number; event: string }) => Promise<void>;
+
+function gcIngest(env: CloudflareBindings): GcIngest | undefined {
+  return (env.LFS_GC as unknown as { ingest?: GcIngest } | undefined)?.ingest?.bind(env.LFS_GC);
+}
+
 // ---------------------------------------------------------------------------
 // POST /:owner/:repo/objects/batch — Batch Objects API
 // ---------------------------------------------------------------------------
@@ -55,6 +61,16 @@ objectsApi.post(
       }),
     );
 
+    // Ingest the repo on downloads — fire-and-forget, must not block LFS ops.
+    if (operation === "download" && objects.length > 0) {
+      try {
+        const ingest = gcIngest(c.env);
+        if (ingest) c.executionCtx.waitUntil(
+          ingest({ owner, repo, oid: objects[0]!.oid, size: objects[0]!.size, event: "download" }),
+        );
+      } catch {}
+    }
+
     return c.json({
       transfer: "basic",
       hash_algo: "sha256",
@@ -79,6 +95,14 @@ objectsApi.post(
 
     const info = await c.get("objects").verifyObject(key, body.size);
     if ("message" in info) return c.json({ message: info.message }, 422);
+
+    // Ingest the repo on confirmed upload — fire-and-forget, must not block LFS ops.
+    try {
+      const ingest = gcIngest(c.env);
+      if (ingest) c.executionCtx.waitUntil(
+        ingest({ owner, repo, oid: body.oid, size: body.size, event: "upload" }),
+      );
+    } catch {}
 
     return c.json({});
   },
