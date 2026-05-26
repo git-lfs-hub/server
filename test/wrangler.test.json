@@ -1,4 +1,5 @@
 {
+  "main": "./main.ts",
   "observability": null,
   "upload_source_maps": null,
   "secrets": null,

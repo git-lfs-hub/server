@@ -1,5 +1,4 @@
 {
-  "server": { "main": "./main.ts" },
   "cloudflare": { "admin": { "workerName": "admin-mock" } },
   "s3": { "endpoint": "https://account-id.r2.cloudflarestorage.com" },
   "github": { "appHome": "https://test.example.com", "org": "Test-Org" }
