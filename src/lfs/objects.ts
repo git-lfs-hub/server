@@ -14,7 +14,9 @@ export const objectsApi = new Hono<AppEnv>();
 type GcIngest = (p: { owner: string; repo: string; oid: string; size: number; event: string }) => Promise<void>;
 
 function gcIngest(env: CloudflareBindings): GcIngest | undefined {
-  return (env.LFS_GC as unknown as { ingest?: GcIngest } | undefined)?.ingest?.bind(env.LFS_GC);
+  const gc = env.LFS_GC as unknown as { ingest?: GcIngest } | undefined;
+  if (!gc?.ingest) return undefined;
+  return (p) => gc.ingest!(p);
 }
 
 // ---------------------------------------------------------------------------

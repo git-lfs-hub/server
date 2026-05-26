@@ -15,6 +15,15 @@ export default defineConfig({
         plugins: [
           cloudflareTest({
             wrangler: { configPath: "./test/wrangler.jsonc" },
+            miniflare: {
+              workers: [
+                {
+                  name: "gc-mock",
+                  modules: true,
+                  scriptPath: "./test/gc/gc-mock.js",
+                },
+              ],
+            },
           }),
         ],
         test: {
