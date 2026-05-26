@@ -41,9 +41,9 @@
   ],
   "services": [
     {
-      "binding": "LFS_GC",
+      "binding": "LFS_ADMIN",
       "entrypoint": "AdminEntrypoint",
-      "service": "{{cloudflare.gc.workerName}}",
+      "service": "{{cloudflare.admin.workerName}}",
     },
   ],
   "vars": {

@@ -209,12 +209,12 @@ describe("request validation", () => {
 // GC Ingest
 // ---------------------------------------------------------------------------
 
-describe("batch gc ingest", () => {
+describe("batch admin ingest", () => {
   const execCtx = { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as unknown as ExecutionContext;
 
-  test("calls LFS_GC.ingest on download with objects", async () => {
+  test("calls LFS_ADMIN.ingest on download with objects", async () => {
     const ingest = vi.fn().mockResolvedValue(undefined);
-    const env = makeEnv({ LFS_GC: { ingest } });
+    const env = makeEnv({ LFS_ADMIN: { ingest } });
     const res = await app.request(
       "http://worker/lfs/alice/repo/objects/batch",
       {
@@ -240,7 +240,7 @@ describe("batch gc ingest", () => {
 
   test("does not call ingest on upload", async () => {
     const ingest = vi.fn().mockResolvedValue(undefined);
-    const env = makeEnv({ LFS_GC: { ingest } });
+    const env = makeEnv({ LFS_ADMIN: { ingest } });
     const res = await app.request(
       "http://worker/lfs/alice/repo/objects/batch",
       {
@@ -260,7 +260,7 @@ describe("batch gc ingest", () => {
 
   test("does not call ingest on empty download", async () => {
     const ingest = vi.fn().mockResolvedValue(undefined);
-    const env = makeEnv({ LFS_GC: { ingest } });
+    const env = makeEnv({ LFS_ADMIN: { ingest } });
     const res = await app.request(
       "http://worker/lfs/alice/repo/objects/batch",
       {
@@ -275,7 +275,7 @@ describe("batch gc ingest", () => {
     expect(ingest).not.toHaveBeenCalled();
   });
 
-  test("succeeds when LFS_GC is absent", async () => {
+  test("succeeds when LFS_ADMIN is absent", async () => {
     const res = await app.request(
       "http://worker/lfs/alice/repo/objects/batch",
       {
@@ -294,7 +294,7 @@ describe("batch gc ingest", () => {
 
   test("succeeds when ingest throws", async () => {
     const ingest = vi.fn().mockRejectedValue(new Error("boom"));
-    const env = makeEnv({ LFS_GC: { ingest } });
+    const env = makeEnv({ LFS_ADMIN: { ingest } });
     const res = await app.request(
       "http://worker/lfs/alice/repo/objects/batch",
       {

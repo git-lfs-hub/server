@@ -102,10 +102,10 @@ describe("verifyHandler", () => {
 // GC Ingest
 // ---------------------------------------------------------------------------
 
-describe("verify gc ingest", () => {
+describe("verify admin ingest", () => {
   const execCtx = { waitUntil: vi.fn(), passThroughOnException: vi.fn() } as unknown as ExecutionContext;
 
-  test("calls LFS_GC.ingest on successful verify", async () => {
+  test("calls LFS_ADMIN.ingest on successful verify", async () => {
     const ingest = vi.fn().mockResolvedValue(undefined);
     const res = await makeApp({ "alice/repo/abc123": 42 }).request(
       "http://worker/lfs/alice/repo/objects/verify",
@@ -114,7 +114,7 @@ describe("verify gc ingest", () => {
         headers: LFS_HEADERS,
         body: JSON.stringify({ oid: "abc123", size: 42 }),
       },
-      { LFS_GC: { ingest } } as any,
+      { LFS_ADMIN: { ingest } } as any,
       execCtx,
     );
     expect(res.status).toBe(200);
@@ -136,14 +136,14 @@ describe("verify gc ingest", () => {
         headers: LFS_HEADERS,
         body: JSON.stringify({ oid: "missing", size: 10 }),
       },
-      { LFS_GC: { ingest } } as any,
+      { LFS_ADMIN: { ingest } } as any,
       execCtx,
     );
     expect(res.status).toBe(422);
     expect(ingest).not.toHaveBeenCalled();
   });
 
-  test("succeeds when LFS_GC is absent", async () => {
+  test("succeeds when LFS_ADMIN is absent", async () => {
     const res = await makeApp({ "alice/repo/abc123": 42 }).request(
       "http://worker/lfs/alice/repo/objects/verify",
       {
@@ -166,7 +166,7 @@ describe("verify gc ingest", () => {
         headers: LFS_HEADERS,
         body: JSON.stringify({ oid: "abc123", size: 42 }),
       },
-      { LFS_GC: { ingest } } as any,
+      { LFS_ADMIN: { ingest } } as any,
       execCtx,
     );
     expect(res.status).toBe(200);

@@ -11,12 +11,12 @@ import { batchRequestSchema, verifyRequestSchema } from "./_schema";
 
 export const objectsApi = new Hono<AppEnv>();
 
-type GcIngest = (p: { owner: string; repo: string; oid: string; size: number; event: string }) => Promise<void>;
+type AdminIngest = (p: { owner: string; repo: string; oid: string; size: number; event: string }) => Promise<void>;
 
-function gcIngest(env: CloudflareBindings): GcIngest | undefined {
-  const gc = env.LFS_GC as unknown as { ingest?: GcIngest } | undefined;
-  if (!gc?.ingest) return undefined;
-  return (p) => gc.ingest!(p);
+function adminIngest(env: CloudflareBindings): AdminIngest | undefined {
+  const admin = env.LFS_ADMIN as unknown as { ingest?: AdminIngest } | undefined;
+  if (!admin?.ingest) return undefined;
+  return (p) => admin.ingest!(p);
 }
 
 // ---------------------------------------------------------------------------
@@ -66,7 +66,7 @@ objectsApi.post(
     // Ingest the repo on downloads — fire-and-forget, must not block LFS ops.
     if (operation === "download" && objects.length > 0) {
       try {
-        const ingest = gcIngest(c.env);
+        const ingest = adminIngest(c.env);
         if (ingest) c.executionCtx.waitUntil(
           ingest({ owner, repo, oid: objects[0]!.oid, size: objects[0]!.size, event: "download" }),
         );
@@ -100,7 +100,7 @@ objectsApi.post(
 
     // Ingest the repo on confirmed upload — fire-and-forget, must not block LFS ops.
     try {
-      const ingest = gcIngest(c.env);
+      const ingest = adminIngest(c.env);
       if (ingest) c.executionCtx.waitUntil(
         ingest({ owner, repo, oid: body.oid, size: body.size, event: "upload" }),
       );

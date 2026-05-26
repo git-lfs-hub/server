@@ -18,9 +18,9 @@ export default defineConfig({
             miniflare: {
               workers: [
                 {
-                  name: "gc-mock",
+                  name: "admin-mock",
                   modules: true,
-                  scriptPath: "./test/gc/gc-mock.js",
+                  scriptPath: "./test/admin/admin-mock.js",
                 },
               ],
             },
