@@ -68,6 +68,14 @@
     },
   ],
   {{/if}}
+  "queues": {
+    "producers": [
+      {
+        "binding": "OBJECT_EVENTS",
+        "queue": "lfs-object-events",
+      },
+    ],
+  },
   "vars": {
     // Deploy environment (e.g. "staging"). Suffixes session cookie names so
     // non-prod deploys don't clobber prod's session on a shared host.
