@@ -3,112 +3,30 @@ import { Hono } from "hono";
 import type { AppEnv } from "../app";
 
 // ---------------------------------------------------------------------------
-// Octokit mock — must be set up before auth.ts is imported
+// auth-package mocks — must be set up before auth.ts is imported
 // ---------------------------------------------------------------------------
 
 const mockState = {
   authenticated: true,
   hasRepoAccess: true,
   hasWriteAccess: true,
-  isMember: true,
   githubLogin: "alice",
 };
 
-vi.mock("@octokit/rest", () => ({
-  Octokit: class {
-    rest = {
-      users: {
-        getAuthenticated: async () => {
-          if (!mockState.authenticated)
-            throw Object.assign(new Error("Unauthorized"), { status: 401 });
-          return { data: { login: mockState.githubLogin } };
-        },
-      },
-      repos: {
-        get: async () => {
-          if (!mockState.hasRepoAccess)
-            throw Object.assign(new Error("Not found"), { status: 404 });
-          return {
-            data: {
-              permissions: {
-                pull: true,
-                push: mockState.hasWriteAccess,
-                admin: false,
-              },
-            },
-          };
-        },
-      },
-      orgs: {
-        getMembershipForAuthenticatedUser: async () => {
-          if (!mockState.isMember)
-            throw Object.assign(new Error("Not a member"), { status: 404 });
-          return { data: { state: "active" } };
-        },
-      },
-    };
+vi.mock("@git-lfs-hub/lib/github", () => ({
+  GithubApi: class {
+    constructor(_token: string) {}
+    async authenticatedUsername() {
+      return mockState.authenticated ? mockState.githubLogin : null;
+    }
+    async repoAccess() {
+      if (!mockState.hasRepoAccess) return null;
+      return mockState.hasWriteAccess ? "write" : "read";
+    }
   },
 }));
 
-const { authMiddleware, extractToken } = await import("./auth");
-
-// ---------------------------------------------------------------------------
-// extractToken — pure function tests, no app needed
-// ---------------------------------------------------------------------------
-
-describe("extractToken", () => {
-  describe("Basic scheme", () => {
-    test("returns username and password from valid Basic credentials", () => {
-      const result = extractToken(`Basic ${btoa("alice:secret")}`);
-      expect(result).toEqual({ username: "alice", token: "secret" });
-    });
-
-    test("splits on the first colon only (password may contain colons)", () => {
-      const result = extractToken(`Basic ${btoa("alice:pass:with:colons")}`);
-      expect(result).toEqual({ username: "alice", token: "pass:with:colons" });
-    });
-
-    test("allows an empty username", () => {
-      const result = extractToken(`Basic ${btoa(":token-only")}`);
-      expect(result).toEqual({ username: "", token: "token-only" });
-    });
-
-    test("returns null for malformed base64", () => {
-      expect(extractToken("Basic !!!not-base64!!!")).toBeNull();
-    });
-
-    test("returns null when decoded value has no colon", () => {
-      expect(extractToken(`Basic ${btoa("nocohereseparator")}`)).toBeNull();
-    });
-
-    test("scheme matching is case-insensitive", () => {
-      expect(extractToken(`BASIC ${btoa("alice:secret")}`)).toEqual({
-        username: "alice",
-        token: "secret",
-      });
-    });
-  });
-
-  describe("non-Basic schemes", () => {
-    test("RemoteAuth: treats raw credential as token, username empty", () => {
-      expect(extractToken("RemoteAuth my-opaque-token")).toEqual({
-        username: "",
-        token: "my-opaque-token",
-      });
-    });
-
-    test("Bearer: treats raw credential as token", () => {
-      expect(extractToken("Bearer eyJhbGciOiJIUzI1NiJ9")).toEqual({
-        username: "",
-        token: "eyJhbGciOiJIUzI1NiJ9",
-      });
-    });
-  });
-
-  test("returns null when no space separates scheme from credentials", () => {
-    expect(extractToken("BasicYWxpY2U6c2VjcmV0")).toBeNull();
-  });
-});
+const { authMiddleware } = await import("./auth");
 
 // ---------------------------------------------------------------------------
 // authMiddleware — HTTP-level tests via Hono's app.request()
@@ -139,7 +57,6 @@ describe("authMiddleware", () => {
     mockState.authenticated = true;
     mockState.hasRepoAccess = true;
     mockState.hasWriteAccess = true;
-    mockState.isMember = true;
     mockState.githubLogin = "alice";
   });
 

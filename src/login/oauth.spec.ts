@@ -1,6 +1,6 @@
 import { vi, describe, test, expect, afterEach } from "vitest";
 import { oauthApi } from "./oauth";
-import { verifyState, decryptSession } from "@git-lfs-hub/auth";
+import { decryptSession } from "@git-lfs-hub/lib/auth";
 
 const LOGIN_SECRET = "a".repeat(64);
 const TEST_ENV = {
@@ -88,31 +88,9 @@ describe("GET /authorize", () => {
     expect(location.searchParams.has("login")).toBe(false);
   });
 
-  test("state round-trip: signed state embeds redirect_uri and client_state", async () => {
-    const res = await get(
-      "/authorize?redirect_uri=http://127.0.0.1:8080/&scope=repo&state=my-state",
-    );
-    const location = new URL(res.headers.get("Location")!);
-    const signedState = location.searchParams.get("state")!;
-
-    const payload = await verifyState(signedState, LOGIN_SECRET);
-    expect(payload).not.toBeNull();
-    expect(payload!.redirect_uri).toBe("http://127.0.0.1:8080/");
-    expect(payload!.client_state).toBe("my-state");
-    expect(payload!.scopes).toBe("repo");
-  });
-
   test("returns 400 when redirect_uri is missing", async () => {
     const res = await get("/authorize?state=s");
     expect(res.status).toBe(400);
-  });
-
-  test("defaults client_state to empty when state is not provided", async () => {
-    const res = await get("/authorize?redirect_uri=http://127.0.0.1:8080/&scope=repo");
-    const location = new URL(res.headers.get("Location")!);
-    const signedState = location.searchParams.get("state")!;
-    const payload = await verifyState(signedState, LOGIN_SECRET);
-    expect(payload!.client_state).toBe("");
   });
 });
 

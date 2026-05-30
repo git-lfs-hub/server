@@ -1,9 +1,12 @@
 import { Hono } from "hono";
-import { setCookie } from "hono/cookie";
 import type { AppEnv } from "../app";
-import type { SessionPayload } from "@git-lfs-hub/auth";
-import { signState, verifyState, buildAuthorizeUrl, exchangeCode, encryptSession } from "@git-lfs-hub/auth";
-import { SESSION_COOKIE, SESSION_TTL } from "./web-auth";
+import {
+  githubOAuthUrl,
+  oauthCallback,
+  oauthSuccessUrl,
+  oauthErrorUrl,
+  setSessionCookie,
+} from "@git-lfs-hub/lib/auth";
 
 // ---------------------------------------------------------------------------
 // OAuth (browser) login flow
@@ -18,21 +21,20 @@ export const oauthApi = new Hono<AppEnv>();
 // intercept here, seal it into a signed state token, and redirect GitHub to our
 // own /callback URL instead.
 oauthApi.get("/authorize", async (c) => {
-  const { redirect_uri, scope, state: clientState, login } = c.req.query();
-
+  const { redirect_uri, scope, state, login } = c.req.query();
   if (!redirect_uri) return c.json({ error: "missing_redirect_uri" }, 400);
-
-  const callbackUrl = `${c.env.GITHUB_APP_HOME}/login/oauth/callback`;
-
-  const signedState = await signState(
-    { redirect_uri, client_state: clientState ?? "", scopes: scope ?? "" },
-    c.env.LOGIN_SECRET,
-  );
-
-  return c.redirect(
-    buildAuthorizeUrl(c.env.GITHUB_CLIENT_ID, callbackUrl, signedState, { scope, login }),
-    302,
-  );
+  const url = await githubOAuthUrl({
+    clientId: c.env.GITHUB_CLIENT_ID,
+    callbackUrl: `${c.env.GITHUB_APP_HOME}/login/oauth/callback`,
+    secret: c.env.LOGIN_SECRET,
+    state: {
+      redirect_uri, // client loopback — sealed in state, used by oauthSuccessUrl
+      client_state: state ?? "", // client's opaque state
+      scopes: scope ?? "",
+    },
+    login,
+  });
+  return c.redirect(url, 302);
 });
 
 // ---------------------------------------------------------------------------
@@ -42,46 +44,23 @@ oauthApi.get("/authorize", async (c) => {
 // with our credentials, encrypt the real token as a short-lived ephemeral code,
 // and redirect the client back to its original loopback URL.
 oauthApi.get("/callback", async (c) => {
-  const { code: ghCode, state: signedState } = c.req.query();
-
-  if (!signedState) return c.json({ error: "invalid_state" }, 400);
-
-  const statePayload = await verifyState(signedState, c.env.LOGIN_SECRET);
-  if (!statePayload) return c.json({ error: "invalid_state" }, 400);
-
-  const { redirect_uri, client_state } = statePayload;
-  const callbackUrl = `${c.env.GITHUB_APP_HOME}/login/oauth/callback`;
-
-  const data = await exchangeCode(
-    c.env.GITHUB_CLIENT_ID,
-    c.env.GITHUB_CLIENT_SECRET,
-    ghCode ?? "",
-    callbackUrl,
-  );
-
-  if (data.error) {
-    const errUrl = new URL(redirect_uri);
-    errUrl.searchParams.set("error", data.error);
-    if (client_state) errUrl.searchParams.set("state", client_state);
-    return c.redirect(errUrl.toString(), 302);
+  const { code, state } = c.req.query();
+  const result = await oauthCallback({
+    code,
+    state,
+    secret: c.env.LOGIN_SECRET,
+    clientId: c.env.GITHUB_CLIENT_ID,
+    clientSecret: c.env.GITHUB_CLIENT_SECRET,
+    callbackUrl: `${c.env.GITHUB_APP_HOME}/login/oauth/callback`,
+  })
+  if (!result.ok) {
+    const errUrl = oauthErrorUrl(result);
+    if (errUrl) return c.redirect(errUrl, 302);
+    return c.json({ error: result.error }, 400);
   }
 
-  const tokenPayload: SessionPayload = { token: data.access_token };
-  if (typeof data.refresh_token === "string") tokenPayload.refresh_token = data.refresh_token;
+  await setSessionCookie(c, result.tokenPayload, c.env.LOGIN_SECRET);
 
-  const ephemeralCode = await encryptSession(tokenPayload, c.env.LOGIN_SECRET);
-
-  setCookie(c, SESSION_COOKIE, await encryptSession(tokenPayload, c.env.LOGIN_SECRET, SESSION_TTL), {
-    httpOnly: true,
-    sameSite: "Lax",
-    secure: true,
-    path: "/",
-    maxAge: SESSION_TTL,
-  });
-
-  const redirectUrl = new URL(redirect_uri);
-  redirectUrl.searchParams.set("code", ephemeralCode);
-  if (client_state) redirectUrl.searchParams.set("state", client_state);
-
-  return c.redirect(redirectUrl.toString(), 302);
+  // Hand ephemeral code to the Git client at its loopback redirect_uri.
+  return c.redirect(await oauthSuccessUrl(result, c.env.LOGIN_SECRET), 302);
 });

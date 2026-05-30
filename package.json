@@ -20,9 +20,8 @@
     "node": "^26.1.0"
   },
   "dependencies": {
-    "@git-lfs-hub/auth": "file:../auth",
+    "@git-lfs-hub/lib": "file:../lib",
     "@hono/standard-validator": "^0.2.2",
-    "@octokit/rest": "^22.0.1",
     "@sentry/cloudflare": "^10.53.1",
     "@sentry/hono": "^10.53.1",
     "aws4fetch": "^1.0.20",

@@ -24,15 +24,3 @@ export function parseGithubList(s: string | undefined): string[] {
   if (!s) return [];
   return s.split(/[,;\s]+/).filter(Boolean);
 }
-
-export function pickHeaders(
-  src: Headers,
-  filter: string[],
-): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const name of filter) {
-    const value = src.get(name);
-    if (value !== null) out[name] = value;
-  }
-  return out;
-}

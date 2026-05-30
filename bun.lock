@@ -5,9 +5,8 @@
     "": {
       "name": "github-lfs-server",
       "dependencies": {
-        "@git-lfs-hub/auth": "file:../auth",
+        "@git-lfs-hub/lib": "file:../lib",
         "@hono/standard-validator": "^0.2.2",
-        "@octokit/rest": "^22.0.1",
         "@sentry/cloudflare": "^10.53.1",
         "@sentry/hono": "^10.53.1",
         "aws4fetch": "^1.0.20",
@@ -141,7 +140,7 @@
 
     "@esbuild/win32-x64": ["@esbuild/win32-x64@0.27.3", "", { "os": "win32", "cpu": "x64" }, "sha512-4uJGhsxuptu3OcpVAzli+/gWusVGwZZHTlS63hh++ehExkVT8SgiEf7/uC/PclrPPkLhZqGgCTjd0VWLo6xMqA=="],
 
-    "@git-lfs-hub/auth": ["@git-lfs-hub/auth@file:../auth", { "dependencies": { "@octokit/rest": "^22.0.1", "jose": "^6.2.3" }, "devDependencies": { "vitest": "^4.1.7" } }],
+    "@git-lfs-hub/lib": ["@git-lfs-hub/lib@file:../lib", { "dependencies": { "@octokit/rest": "^22.0.1", "hono": "^4.12.23", "jose": "^6.2.3" }, "devDependencies": { "@vitest/coverage-istanbul": "^4.1.7", "vitest": "^4.1.7" } }],
 
     "@hono/standard-validator": ["@hono/standard-validator@0.2.2", "", { "peerDependencies": { "@standard-schema/spec": "^1.0.0", "hono": ">=3.9.0" } }, "sha512-mJ7W84Bt/rSvoIl63Ynew+UZOHAzzRAoAXb3JaWuxAkM/Lzg+ZHTCUiz77KOtn2e623WNN8LkD57Dk0szqUrIw=="],
 
@@ -566,6 +565,8 @@
     "@cloudflare/vitest-pool-workers/zod": ["zod@3.25.76", "", {}, "sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ=="],
 
     "@cspotcode/source-map-support/@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.9", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.0.3", "@jridgewell/sourcemap-codec": "^1.4.10" } }, "sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ=="],
+
+    "@git-lfs-hub/lib/hono": ["hono@4.12.23", "", {}, "sha512-eIaZ9qDgu7XV0pxOCrg7/WhnQ6Ivm22UcxhXx/A3dcbqbbYgBEkc6e/J/s7j2tS96zoB0S9VBdLwQNCWwUo4LA=="],
 
     "@poppinss/dumper/supports-color": ["supports-color@10.2.2", "", {}, "sha512-SS+jx45GF1QjgEXQx4NJZV9ImqmO2NPz5FNsIHrsDjh2YsHnawpan7SNQ1o8NuhrbHZy9AZhIoCUiCeaW/C80g=="],
 
