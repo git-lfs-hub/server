@@ -15,20 +15,11 @@ const mockState = vi.hoisted(() => ({
   push: true,
 }));
 
-vi.mock("@octokit/rest", () => ({
-  Octokit: class {
-    rest = {
-      users: {
-        getAuthenticated: async () => ({
-          data: { login: mockState.login },
-        }),
-      },
-      repos: {
-        get: async () => ({
-          data: { permissions: { push: mockState.push, admin: false } },
-        }),
-      },
-    };
+vi.mock("@git-lfs-hub/lib/github", () => ({
+  GithubApi: class {
+    constructor(_token: string) {}
+    async authenticatedUsername() { return mockState.login; }
+    async repoAccess() { return mockState.push ? "write" : "read"; }
   },
 }));
 

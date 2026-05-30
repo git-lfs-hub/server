@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../app";
-import { pickHeaders } from "./utils";
+import { githubProxyFetch } from "@git-lfs-hub/lib/github";
 
 // ---------------------------------------------------------------------------
 // Github /api Proxy
@@ -20,15 +20,8 @@ githubProxy.get("/v3/meta", (c) =>
   }),
 );
 
-const FORWARDED_RESPONSE_HEADERS = [
-  "Content-Type",
-  "X-OAuth-Scopes",
-  "X-Accepted-OAuth-Scopes",
-];
-
 const GITHUB_HEADERS = {
   Accept: "application/vnd.github+json",
-  "User-Agent": "git-lfs-hub/server",
   "X-GitHub-Api-Version": "2022-11-28",
 };
 
@@ -36,27 +29,23 @@ const GITHUB_HEADERS = {
 // GET /api/v3/user
 // ---------------------------------------------------------------------------
 // GCM calls this after the OAuth flow to validate the token and resolve the GitHub username.
-githubProxy.get("/v3/user", async (c) => {
-  const res = await fetch("https://api.github.com/user", {
+githubProxy.get("/v3/user", (c) =>
+  githubProxyFetch("https://api.github.com/user", {
     headers: {
       ...GITHUB_HEADERS,
       ...(c.req.header("Authorization")
         ? { Authorization: c.req.header("Authorization")! }
         : {}),
     },
-  });
-  return new Response(await res.text(), {
-    status: res.status,
-    headers: pickHeaders(res.headers, FORWARDED_RESPONSE_HEADERS),
-  });
-});
+  }),
+);
 
 // ---------------------------------------------------------------------------
 // POST /api/graphql
 // ---------------------------------------------------------------------------
 // gh CLI uses this for username resolution (UserCurrent query) and to inspect X-OAuth-Scopes.
-githubProxy.post("/graphql", async (c) => {
-  const res = await fetch("https://api.github.com/graphql", {
+githubProxy.post("/graphql", async (c) =>
+  githubProxyFetch("https://api.github.com/graphql", {
     method: "POST",
     headers: {
       ...GITHUB_HEADERS,
@@ -66,9 +55,5 @@ githubProxy.post("/graphql", async (c) => {
         : {}),
     },
     body: await c.req.text(),
-  });
-  return new Response(await res.text(), {
-    status: res.status,
-    headers: pickHeaders(res.headers, FORWARDED_RESPONSE_HEADERS),
-  });
-});
+  }),
+);
