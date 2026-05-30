@@ -106,6 +106,28 @@ describe("webAuthMiddleware", () => {
     });
   });
 
+  describe("GITHUB_ORGS (multi-org)", () => {
+    const envOrgs = {
+      LOGIN_SECRET,
+      GITHUB_APP_HOME: "https://example.com",
+      GITHUB_ORGS: "org-a org-b",
+    } as unknown as CloudflareBindings;
+
+    test("member of one of two orgs passes", async () => {
+      mockOrgRole.mockReset();
+      mockOrgRole.mockResolvedValueOnce(null).mockResolvedValueOnce("member");
+      const res = await makeApp(envOrgs)("http://w/");
+      expect(res.status).toBe(200);
+      expect(mockOrgRole).toHaveBeenCalledTimes(2);
+    });
+
+    test("member of neither org is denied", async () => {
+      mockOrgRole.mockResolvedValue(null);
+      const res = await makeApp(envOrgs)("http://w/");
+      expect(res.status).toBe(403);
+    });
+  });
+
   describe("GITHUB_USER (user mode)", () => {
     const envUser = {
       LOGIN_SECRET,

@@ -23,6 +23,12 @@
       },
     ],
   },
+  "kv_namespaces": [
+    {
+      "binding": "GITHUB_CACHE",
+      "id": "test-github-cache",
+    },
+  ],
   "migrations": [
     {
       "tag": "v1",
