@@ -20,3 +20,5 @@ export default app;
 
 // required for Wrangler
 export { Locks } from "./db/locks";
+export { Repos } from "./db/repos";
+export { Migration } from "./db/migration";

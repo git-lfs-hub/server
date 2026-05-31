@@ -31,12 +31,27 @@
         "name": "LOCKS",
         "class_name": "Locks",
       },
+      {
+        "name": "REPOS",
+        "class_name": "Repos",
+      },
     ],
   },
   "migrations": [
     {
       "tag": "v1",
       "new_sqlite_classes": ["Locks"],
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["Repos"],
+    },
+  ],
+  "workflows": [
+    {
+      "name": "migration",
+      "binding": "MIGRATION",
+      "class_name": "Migration",
     },
   ],
   {{!-- Omitted until a namespace id is set, so `wrangler kv namespace create

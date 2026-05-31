@@ -4,6 +4,7 @@ import assert from "assert";
 
 import type { AppEnv } from "../app";
 import { batchRequestSchema, verifyRequestSchema } from "./_schema";
+import { resolveName } from "./name";
 
 // -----------------------------------------------------------------------------
 // https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
@@ -21,8 +22,6 @@ objectsApi.post(
   }),
   async (c) => {
     const body = c.req.valid("json");
-    const owner = c.req.param("owner");
-    const repo = c.req.param("repo").replace(/\.git$/, "");
     const origin = new URL(c.req.url).origin;
     const { operation, objects } = body;
 
@@ -33,12 +32,13 @@ objectsApi.post(
       );
     }
 
+    const name = await resolveName(c);
     const bucket = c.get("objects");
     const results = await Promise.all(
       objects.map(async (obj) => {
-        const key = `${owner}/${repo}/${obj.oid}`;
+        const key = `${name}/${obj.oid}`;
         if (operation === "upload") {
-          const verifyHref = `${origin}/lfs/${owner}/${repo}/objects/verify`;
+          const verifyHref = `${origin}/lfs/${name}/objects/verify`;
           return {
             oid: obj.oid,
             size: obj.size,
@@ -73,9 +73,7 @@ objectsApi.post(
   }),
   async (c) => {
     const body = c.req.valid("json");
-    const owner = c.req.param("owner");
-    const repo = c.req.param("repo").replace(/\.git$/, "");
-    const key = `${owner}/${repo}/${body.oid}`;
+    const key = `${await resolveName(c)}/${body.oid}`;
 
     const info = await c.get("objects").verifyObject(key, body.size);
     if ("message" in info) return c.json({ message: info.message }, 422);

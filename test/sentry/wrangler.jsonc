@@ -21,6 +21,10 @@
         "name": "LOCKS",
         "class_name": "Locks",
       },
+      {
+        "name": "REPOS",
+        "class_name": "Repos",
+      },
     ],
   },
   "migrations": [
@@ -31,6 +35,10 @@
     {
       "tag": "v2",
       "renamed_classes": [{ "from": "RepoLocks", "to": "Locks" }],
+    },
+    {
+      "tag": "v3",
+      "new_sqlite_classes": ["Repos"],
     },
   ],
   "vars": {
