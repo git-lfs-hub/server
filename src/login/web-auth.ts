@@ -16,7 +16,7 @@ export const webAuthMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   const cookie = await getSessionCookie(c, c.env.LOGIN_SECRET);
   if (!cookie) return c.redirect(loginUrl);
 
-  let api = new GithubApi(cookie.token);
+  let api = new GithubApi(cookie.token, c.env.GITHUB_CACHE);
   let username = await api.authenticatedUsername();
 
   if (!username && cookie.refresh_token) {
@@ -34,7 +34,7 @@ export const webAuthMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
             ? data.refresh_token
             : cookie.refresh_token,
       };
-      api = new GithubApi(payload.token);
+      api = new GithubApi(payload.token, c.env.GITHUB_CACHE);
       username = await api.authenticatedUsername();
       if (username) await setSessionCookie(c, payload, c.env.LOGIN_SECRET);
     }

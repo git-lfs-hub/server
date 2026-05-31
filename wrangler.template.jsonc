@@ -39,6 +39,16 @@
       "new_sqlite_classes": ["Locks"],
     },
   ],
+  {{!-- Omitted until a namespace id is set, so `wrangler kv namespace create
+  GITHUB_CACHE` can run before the binding exists. No id → auth cache disabled. --}}
+  {{#if cloudflare.kv.githubCacheId}}
+  "kv_namespaces": [
+    {
+      "binding": "GITHUB_CACHE",
+      "id": "{{cloudflare.kv.githubCacheId}}",
+    },
+  ],
+  {{/if}}
   "vars": {
     "S3_ENDPOINT": "{{s3.endpoint}}",
     "S3_BUCKET_NAME": "{{s3.bucket}}",

@@ -22,7 +22,7 @@ export const authMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
     return c.json(DENY, 401, DENY_HEADERS);
   }
 
-  const api = new GithubApi(headerAuth.token);
+  const api = new GithubApi(headerAuth.token, c.env.GITHUB_CACHE);
   const username = await api.authenticatedUsername();
   if (!username) return c.json(DENY, 401, DENY_HEADERS);
 
