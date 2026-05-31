@@ -25,4 +25,4 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: read }
     steps:
-      - uses: git-lfs-hub/ci-cd/actions/check-can-merge@can-mege
+      - uses: git-lfs-hub/ci-cd/actions/check-can-merge@main
