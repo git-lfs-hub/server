@@ -3,7 +3,7 @@
   "type": "module",
   "scripts": {
     "types": "wrangler types --env-interface CloudflareBindings",
-    "test": "vitest run",
+    "test": "tsc --noEmit -p test/tsconfig.json && vitest run",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project 'integration*'",
     "test:scripts": "vitest run --project 'scripts'",
