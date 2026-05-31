@@ -2,7 +2,7 @@ import { DurableObject } from "cloudflare:workers";
 import { and, eq, sql } from "drizzle-orm";
 import { drizzle, DrizzleSqliteDODatabase } from "drizzle-orm/durable-sqlite";
 
-import { repos } from "./repos-schema";
+import { repos, CURRENT_VER } from "./repos-schema";
 
 // Singleton registry (addressed `getByName("global")`): one `repos` row per
 // repo, keyed by lowercase (owner, repo), pinning a canonical `name` — the R2
@@ -32,9 +32,12 @@ export class Repos extends DurableObject {
     const candidate = `${owner}/${repo.replace(/\.git$/, "")}`;
     // No-op set keeps the existing name on conflict, but makes RETURNING emit the
     // row in one query (DO NOTHING returns nothing on conflict).
+    // New repos are born at CURRENT_VER — created now, they have nothing to
+    // migrate, so the backfill skips them. Pre-existing rows (none, or seeded
+    // by the backfill) keep the column's 0 floor and get migrated up.
     const [row] = await this.db
       .insert(repos)
-      .values({ ...identity(owner, repo), name: candidate })
+      .values({ ...identity(owner, repo), name: candidate, ver: CURRENT_VER })
       .onConflictDoUpdate({
         target: [repos.owner, repos.repo],
         set: { name: sql`${repos.name}` },

@@ -2,6 +2,8 @@ import { env } from "cloudflare:workers";
 import { reset } from "cloudflare:test";
 import { describe, test, expect, afterEach } from "vitest";
 
+import { CURRENT_VER } from "../../src/db/repos-schema";
+
 afterEach(async () => {
   await reset();
 });
@@ -43,13 +45,13 @@ describe("resolveName", () => {
 });
 
 // ---------------------------------------------------------------------------
-// ver (Part B guard)
+// ver (migration guard)
 // ---------------------------------------------------------------------------
 
 describe("migration version", () => {
-  test("defaults to 0 for a freshly pinned repo", async () => {
+  test("a freshly pinned repo is born at CURRENT_VER", async () => {
     await registry().resolveName("Alice", "Repo");
-    expect(await registry().getVer("alice", "repo")).toBe(0);
+    expect(await registry().getVer("alice", "repo")).toBe(CURRENT_VER);
   });
 
   test("setVer stamps a row read back case-insensitively", async () => {

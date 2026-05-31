@@ -47,6 +47,13 @@
       "new_sqlite_classes": ["Repos"],
     },
   ],
+  "workflows": [
+    {
+      "name": "migration",
+      "binding": "MIGRATION",
+      "class_name": "Migration",
+    },
+  ],
   {{!-- Omitted until a namespace id is set, so `wrangler kv namespace create
   GITHUB_CACHE` can run before the binding exists. No id → auth cache disabled. --}}
   {{#if cloudflare.kv.githubCacheId}}
