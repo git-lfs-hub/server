@@ -138,7 +138,7 @@ describe("GET /callback", () => {
 
     const decoded = await decryptSession(ephemeralCode, LOGIN_SECRET);
     expect(decoded).not.toBeNull();
-    expect(decoded!.token).toBe("ghu_real_token");
+    expect(decoded!.access).toBe("ghu_real_token");
   });
 
   test("stores refresh_token in ephemeral code when GitHub returns one", async () => {
@@ -152,7 +152,7 @@ describe("GET /callback", () => {
     const ephemeralCode = location.searchParams.get("code")!;
 
     const decoded = await decryptSession(ephemeralCode, LOGIN_SECRET);
-    expect(decoded!.refresh_token).toBe("ghr_refresh");
+    expect(decoded!.refresh).toBe("ghr_refresh");
   });
 
   test("omits refresh_token in ephemeral code when GitHub does not return one", async () => {
@@ -166,7 +166,7 @@ describe("GET /callback", () => {
     const ephemeralCode = location.searchParams.get("code")!;
 
     const decoded = await decryptSession(ephemeralCode, LOGIN_SECRET);
-    expect(decoded!.refresh_token).toBeUndefined();
+    expect(decoded!.refresh).toBeUndefined();
   });
 
   test("preserves client state in redirect", async () => {

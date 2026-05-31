@@ -35,13 +35,13 @@ tokenApi.post("/access_token", async (c) => {
 
   const code = form["code"];
   if (typeof code === "string") {
-    const payload = await decryptSession(code, c.env.LOGIN_SECRET);
-    if (!payload) return c.json({ error: "invalid_grant" }, 400);
+    const tokens = await decryptSession(code, c.env.LOGIN_SECRET);
+    if (!tokens) return c.json({ error: "invalid_grant" }, 400);
     return c.json({
-      access_token: payload.token,
+      access_token: tokens.access,
       token_type: "bearer",
       scope: "",
-      ...(payload.refresh_token ? { refresh_token: payload.refresh_token } : {}),
+      ...(tokens.refresh ? { refresh_token: tokens.refresh } : {}),
     });
   }
 
