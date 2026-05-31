@@ -2,9 +2,10 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { Hono } from "hono";
 import type { AppEnv } from "../app";
 import {
-  decryptSession,
-  encryptSession,
-  SESSION_COOKIE,
+  getSessionCookie,
+  setSessionCookie,
+  ACCESS_COOKIE,
+  type SessionTokens,
 } from "@git-lfs-hub/lib/auth/session";
 import { webAuthMiddleware } from "./web-auth";
 
@@ -49,11 +50,28 @@ function oauthRefresh(body: Record<string, string>) {
   };
 }
 
+function setCookiePairs(res: Response): string {
+  return res.headers
+    .getSetCookie()
+    .map((c) => c.split(";")[0])
+    .join("; ");
+}
+
+/** Encode session tokens into the split-cookie Cookie header the middleware reads. */
+async function seedCookie(session: SessionTokens): Promise<string> {
+  const a = new Hono();
+  a.get("/seed", async (c) => {
+    await setSessionCookie(c, session, SECRET);
+    return c.text("ok");
+  });
+  return setCookiePairs(await a.request("/seed"));
+}
+
 function sessionRequest(cookie?: string) {
   const hono = new Hono<AppEnv>();
   hono.get("/*", webAuthMiddleware, (c) => c.json({ user: c.get("user") }));
   const headers: Record<string, string> = {};
-  if (cookie) headers.Cookie = `${SESSION_COOKIE}=${cookie}`;
+  if (cookie) headers.Cookie = cookie;
   return hono.request("http://w/", { headers }, TEST_ENV);
 }
 
@@ -61,11 +79,7 @@ describe("webAuthMiddleware session cookie", () => {
   afterEach(() => vi.restoreAllMocks());
 
   test("allows request when access token is valid", async () => {
-    const cookie = await encryptSession(
-      { token: "ghu_ok", refresh_token: "ghr_r" },
-      SECRET,
-      3600,
-    );
+    const cookie = await seedCookie({ access: "ghu_ok", refresh: "ghr_r" });
     mockFetchSequence([githubUser("alice")]);
 
     const res = await sessionRequest(cookie);
@@ -75,11 +89,7 @@ describe("webAuthMiddleware session cookie", () => {
   });
 
   test("refreshes and rewrites cookie when access token is expired", async () => {
-    const cookie = await encryptSession(
-      { token: "ghu_stale", refresh_token: "ghr_old" },
-      SECRET,
-      3600,
-    );
+    const cookie = await seedCookie({ access: "ghu_stale", refresh: "ghr_old" });
     mockFetchSequence([
       githubUnauthorized(),
       oauthRefresh({ access_token: "ghu_new", refresh_token: "ghr_new" }),
@@ -88,16 +98,12 @@ describe("webAuthMiddleware session cookie", () => {
 
     const res = await sessionRequest(cookie);
     expect(res.status).toBe(200);
-    expect(res.headers.get("set-cookie")).toContain(SESSION_COOKIE);
+    expect(res.headers.get("set-cookie")).toContain(ACCESS_COOKIE);
     expect(globalThis.fetch).toHaveBeenCalledTimes(3);
   });
 
-  test("keeps prior refresh_token when GitHub omits a new one", async () => {
-    const cookie = await encryptSession(
-      { token: "ghu_stale", refresh_token: "ghr_old" },
-      SECRET,
-      3600,
-    );
+  test("keeps prior refresh when GitHub omits a new one", async () => {
+    const cookie = await seedCookie({ access: "ghu_stale", refresh: "ghr_old" });
     mockFetchSequence([
       githubUnauthorized(),
       oauthRefresh({ access_token: "ghu_new" }),
@@ -106,15 +112,18 @@ describe("webAuthMiddleware session cookie", () => {
 
     const res = await sessionRequest(cookie);
     expect(res.status).toBe(200);
-    const setCookie = res.headers.get("set-cookie") ?? "";
-    const rotated = setCookie.match(/gh_session_v2=([^;]+)/)?.[1];
-    expect(rotated).toBeTruthy();
-    const payload = await decryptSession(rotated!, SECRET);
-    expect(payload?.refresh_token).toBe("ghr_old");
+
+    const reissued = setCookiePairs(res);
+    const a = new Hono();
+    a.get("/get", async (c) => c.json(await getSessionCookie(c, SECRET)));
+    const getRes = await a.request("/get", { headers: { Cookie: reissued } });
+    const tokens = (await getRes.json()) as SessionTokens;
+    expect(tokens.access).toBe("ghu_new");
+    expect(tokens.refresh).toBe("ghr_old");
   });
 
-  test("redirects when access token is invalid and there is no refresh_token", async () => {
-    const cookie = await encryptSession({ token: "ghu_stale" }, SECRET, 3600);
+  test("redirects when access token is invalid and there is no refresh", async () => {
+    const cookie = await seedCookie({ access: "ghu_stale" });
     mockFetchSequence([githubUnauthorized()]);
 
     const res = await sessionRequest(cookie);
@@ -123,11 +132,7 @@ describe("webAuthMiddleware session cookie", () => {
   });
 
   test("redirects when refresh grant returns an error", async () => {
-    const cookie = await encryptSession(
-      { token: "ghu_stale", refresh_token: "ghr_old" },
-      SECRET,
-      3600,
-    );
+    const cookie = await seedCookie({ access: "ghu_stale", refresh: "ghr_old" });
     mockFetchSequence([
       githubUnauthorized(),
       oauthRefresh({ error: "bad_refresh" }),
@@ -138,7 +143,7 @@ describe("webAuthMiddleware session cookie", () => {
   });
 
   test("redirects for invalid cookie", async () => {
-    const res = await sessionRequest("not-a-jwe");
+    const res = await sessionRequest(`${ACCESS_COOKIE}=not-a-jwe`);
     expect(res.status).toBe(302);
   });
 });

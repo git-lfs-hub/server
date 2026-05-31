@@ -53,14 +53,15 @@ oauthApi.get("/callback", async (c) => {
     clientSecret: c.env.GITHUB_CLIENT_SECRET,
     callbackUrl: `${c.env.GITHUB_APP_HOME}/login/oauth/callback`,
   })
+
   if (!result.ok) {
-    const errUrl = oauthErrorUrl(result);
-    if (errUrl) return c.redirect(errUrl, 302);
+    if (result.state)
+      return c.redirect(oauthErrorUrl(result.state, result.error), 302);
     return c.json({ error: result.error }, 400);
   }
 
-  await setSessionCookie(c, result.tokenPayload, c.env.LOGIN_SECRET);
+  await setSessionCookie(c, result.tokens, c.env.LOGIN_SECRET);
 
   // Hand ephemeral code to the Git client at its loopback redirect_uri.
-  return c.redirect(await oauthSuccessUrl(result, c.env.LOGIN_SECRET), 302);
+  return c.redirect(await oauthSuccessUrl(result.tokens, result.state, c.env.LOGIN_SECRET), 302);
 });

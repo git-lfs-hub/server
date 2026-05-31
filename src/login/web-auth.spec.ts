@@ -2,24 +2,14 @@ import { vi, describe, test, expect, beforeEach } from "vitest";
 import { Hono } from "hono";
 import type { AppEnv } from "../app";
 
-const { mockOrgRole, mockGetSessionCookie, mockAuthenticatedUsername } = vi.hoisted(() => ({
+const { mockOrgRole, mockResolveSession } = vi.hoisted(() => ({
   mockOrgRole: vi.fn(),
-  mockGetSessionCookie: vi.fn(),
-  mockAuthenticatedUsername: vi.fn(),
-}));
-
-vi.mock("@git-lfs-hub/lib/github", async (orig) => ({
-  ...(await orig<typeof import("@git-lfs-hub/lib/github")>()),
-  GithubApi: class MockGithubApi {
-    constructor(_token: string) {}
-    authenticatedUsername = mockAuthenticatedUsername;
-    orgRole = mockOrgRole;
-  },
+  mockResolveSession: vi.fn(),
 }));
 
 vi.mock("@git-lfs-hub/lib/auth", async (orig) => ({
   ...(await orig<typeof import("@git-lfs-hub/lib/auth")>()),
-  getSessionCookie: mockGetSessionCookie,
+  resolveSession: mockResolveSession,
 }));
 
 const { webAuthMiddleware } = await import("./web-auth");
@@ -33,7 +23,11 @@ const TEST_ENV = {
   GITHUB_CLIENT_SECRET: "test-client-secret",
 } as unknown as CloudflareBindings;
 
-const COOKIE = { Cookie: "gh_session_v2=anything" };
+const mockApi = { orgRole: mockOrgRole };
+
+function resolved(username: string) {
+  mockResolveSession.mockResolvedValue({ api: mockApi, username });
+}
 
 function makeApp(env = TEST_ENV) {
   const hono = new Hono<AppEnv>();
@@ -41,7 +35,7 @@ function makeApp(env = TEST_ENV) {
     c.json({ ok: true, user: c.get("user") }),
   );
   return (url: string, init: RequestInit = {}) =>
-    hono.request(url, { ...init, headers: { ...COOKIE, ...(init.headers ?? {}) } }, env);
+    hono.request(url, { ...init, headers: { ...(init.headers ?? {}) } }, env);
 }
 
 const app = makeApp();
@@ -49,26 +43,25 @@ const app = makeApp();
 describe("webAuthMiddleware", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetSessionCookie.mockResolvedValue({ token: "ghu_ok" });
-    mockAuthenticatedUsername.mockResolvedValue("alice");
+    resolved("alice");
     mockOrgRole.mockResolvedValue("member");
   });
 
   describe("unauthenticated → redirects to login", () => {
     test("no session returns 302", async () => {
-      mockGetSessionCookie.mockResolvedValue(null);
+      mockResolveSession.mockResolvedValue(null);
       const res = await app("http://w/");
       expect(res.status).toBe(302);
     });
 
     test("redirect points to /login/oauth/authorize", async () => {
-      mockGetSessionCookie.mockResolvedValue(null);
+      mockResolveSession.mockResolvedValue(null);
       const res = await app("http://w/");
       expect(res.headers.get("Location")).toContain("/login/oauth/authorize");
     });
 
     test("redirect encodes GITHUB_APP_HOME as redirect_uri", async () => {
-      mockGetSessionCookie.mockResolvedValue(null);
+      mockResolveSession.mockResolvedValue(null);
       const res = await app("http://w/");
       expect(res.headers.get("Location")).toContain(
         encodeURIComponent("https://example.com/"),
@@ -76,16 +69,10 @@ describe("webAuthMiddleware", () => {
     });
 
     test("redirect requests read:org scope", async () => {
-      mockGetSessionCookie.mockResolvedValue(null);
+      mockResolveSession.mockResolvedValue(null);
       const res = await app("http://w/");
       const location = new URL(res.headers.get("Location")!, "http://w");
       expect(location.searchParams.get("scope")).toBe("read:org");
-    });
-
-    test("invalid session also redirects", async () => {
-      mockAuthenticatedUsername.mockResolvedValue(null);
-      const res = await app("http://w/");
-      expect(res.status).toBe(302);
     });
   });
 
@@ -97,7 +84,7 @@ describe("webAuthMiddleware", () => {
     });
 
     test("403 body names the user and org", async () => {
-      mockAuthenticatedUsername.mockResolvedValue("bob");
+      resolved("bob");
       mockOrgRole.mockResolvedValue(null);
       const res = await app("http://w/");
       const body = await res.text();
@@ -136,7 +123,7 @@ describe("webAuthMiddleware", () => {
     } as unknown as CloudflareBindings;
 
     test("matching user is allowed without org check", async () => {
-      mockAuthenticatedUsername.mockResolvedValue("carol");
+      resolved("carol");
       const res = await makeApp(envUser)("http://w/");
       expect(res.status).toBe(200);
       expect(mockOrgRole).not.toHaveBeenCalled();
@@ -148,7 +135,7 @@ describe("webAuthMiddleware", () => {
     });
 
     test("match is case-insensitive", async () => {
-      mockAuthenticatedUsername.mockResolvedValue("Carol");
+      resolved("Carol");
       const res = await makeApp(envUser)("http://w/");
       expect(res.status).toBe(200);
     });
@@ -158,7 +145,7 @@ describe("webAuthMiddleware", () => {
     test("localhost requests skip auth entirely", async () => {
       const res = await app("http://localhost/");
       expect(res.status).toBe(200);
-      expect(mockGetSessionCookie).not.toHaveBeenCalled();
+      expect(mockResolveSession).not.toHaveBeenCalled();
     });
   });
 
@@ -169,7 +156,7 @@ describe("webAuthMiddleware", () => {
     });
 
     test("sets c.var.user to the GitHub login", async () => {
-      mockAuthenticatedUsername.mockResolvedValue("gh-alice");
+      resolved("gh-alice");
       const res = await app("http://w/");
       const body = (await res.json()) as { user: string };
       expect(body.user).toBe("gh-alice");
