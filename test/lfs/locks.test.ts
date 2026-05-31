@@ -517,3 +517,29 @@ describe("unlockHandler", () => {
     expect(body.locks).toHaveLength(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Canonical prefix addressing
+// ---------------------------------------------------------------------------
+
+describe("canonical prefix addressing", () => {
+  test("requests in differing cases resolve the same lock DO", async () => {
+    // First access pins name → "Alice/Repo"; the lock lands in that DO.
+    const created = await alice.request(
+      "http://w/lfs/Alice/Repo/locks",
+      { method: "POST", headers: LFS, body: JSON.stringify({ path: "f.bin" }) },
+      env,
+    );
+    expect(created.status).toBe(201);
+
+    // A lowercase request resolves to the same name → same DO → sees the lock.
+    const res = await alice.request(
+      "http://w/lfs/alice/repo/locks",
+      { headers: LFS },
+      env,
+    );
+    const body = (await res.json()) as any;
+    expect(body.locks).toHaveLength(1);
+    expect(body.locks[0].path).toBe("f.bin");
+  });
+});

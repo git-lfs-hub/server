@@ -3,6 +3,9 @@ import { Hono } from "hono";
 
 import type { AppEnv } from "../app";
 import { objectsApi } from "./objects";
+import { stubRepos } from "../test/repos-mock";
+
+const ENV = { REPOS: stubRepos() } as any;
 
 function makeApp(objects: Record<string, number> = {}) {
   const app = new Hono<AppEnv>();
@@ -18,7 +21,11 @@ function makeApp(objects: Record<string, number> = {}) {
     return next();
   });
   app.route("/lfs", objectsApi);
-  return app;
+  // Inject the Repos binding so resolveName() works without a real DO.
+  return {
+    request: (input: string, init?: RequestInit) =>
+      app.request(input, init, ENV),
+  };
 }
 
 const LFS_HEADERS = {

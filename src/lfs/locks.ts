@@ -8,6 +8,7 @@ import {
   unlockRequestSchema,
 } from "./_schema";
 import type { LockRow } from "../db/locks";
+import { resolveName } from "./name";
 
 // -----------------------------------------------------------------------------
 // https://github.com/git-lfs/git-lfs/blob/main/docs/api/locking.md
@@ -32,7 +33,7 @@ locksApi.post(
     }
     const body = c.req.valid("json");
     const user = c.get("user");
-    const stub = getLocksStub(c);
+    const stub = await getLocksStub(c);
     const existing = await stub.getByPath(body.path);
     if (existing) {
       return c.json(
@@ -107,7 +108,7 @@ locksApi.post(
     const uuid = c.req.param("id");
     const user = c.get("user");
 
-    const stub = getLocksStub(c);
+    const stub = await getLocksStub(c);
     const lock = uuid ? await stub.getById(uuid) : null;
     if (!lock) return c.json({ message: "Lock not found" }, 404);
     if (lock.owner !== user && !body.force) {
@@ -122,18 +123,9 @@ locksApi.post(
   },
 );
 
-function getLocksStub(c: Context<AppEnv>) {
-  const owner = c.req.param("owner");
-  const repo = c.req.param("repo");
-  if (!owner || !repo) {
-    // istanbul ignore next -- defensive: guaranteed by /:owner/:repo/* route pattern
-    throw new Error("Both owner and repo must be specified");
-  }
-  return c.env.LOCKS.getByName(repoKey(owner, repo));
-}
-
-function repoKey(owner: string, repo: string): string {
-  return `${owner}/${repo.replace(/\.git$/, "")}`;
+async function getLocksStub(c: Context<AppEnv>) {
+  const name = await resolveName(c);
+  return c.env.LOCKS.getByName(name);
 }
 
 async function listLocks(
@@ -148,7 +140,7 @@ async function listLocks(
   const cursor = opts.cursor ? parseInt(opts.cursor, 10) : null;
   const limit = Math.min(Math.max(opts.limit ?? 0, 0) || 100, 1000);
 
-  const stub = getLocksStub(c);
+  const stub = await getLocksStub(c);
   const results = await stub.list({
     pathFilter: opts.pathFilter,
     uuidFilter: opts.uuidFilter,

@@ -4,6 +4,7 @@ import { objectsApi } from "./objects";
 import { ObjectsStorage } from "../storage/objects";
 import type { AppEnv } from "../app";
 import { emptyR2Bucket } from "../test/r2-bucket-mock";
+import { stubRepos } from "../test/repos-mock";
 
 function makeEnv() {
   return {
@@ -13,6 +14,7 @@ function makeEnv() {
     S3_SECRET_ACCESS_KEY: "test-secret",
     S3_BUCKET_NAME: "lfs-objects",
     S3_PRESIGN_TTL: "3600",
+    REPOS: stubRepos(),
   } as any;
 }
 
