@@ -19,9 +19,18 @@ if [[ ! "$VER" =~ ^[1-9][0-9]*$ ]]; then
   exit 1
 fi
 
+# Workflow name is suffixed with -{env} for non-prod (matching workerName and
+# the rendered wrangler.jsonc), so trigger the env-specific workflow. Mirrors
+# config's PROD_ENVS: env unset/production/prod targets the bare "migration".
+WORKFLOW="migration"
+case "${GLH_ENV:-}" in
+  ""|production|prod) ;;
+  *) WORKFLOW="migration-${GLH_ENV}" ;;
+esac
+
 INSTANCE_ID="migration-v${VER}"
 
-out=$(wrangler workflows trigger migration "{\"ver\":${VER}}" \
+out=$(wrangler workflows trigger "$WORKFLOW" "{\"ver\":${VER}}" \
   --id "$INSTANCE_ID" 2>&1) && status=0 || status=$?
 
 if [[ $status -ne 0 ]]; then

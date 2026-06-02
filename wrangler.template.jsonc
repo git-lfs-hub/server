@@ -5,6 +5,7 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "{{cloudflare.workerName}}",
+  "account_id": "{{cloudflare.accountId}}",
   "main": "src/index.ts",
   "compatibility_date": "2026-05-08",
   "assets": {
