@@ -4,20 +4,19 @@ on:
   pull_request:
   workflow_dispatch: # Can run manually from the Actions tab
 
+env:
+  GLH_VARS_JSON: ${{ secrets.vars-json }}
+
 jobs:
   test:
     name: Test
     runs-on: ubuntu-latest
     permissions: { contents: read, pull-requests: write }
-    env:
-      GLH_VARS_JSON: ${{ secrets.GLH_VARS_JSON }}
 
     steps:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/init
-        with:
-          vars-json: ${{ secrets.GLH_VARS_JSON }}
 
       - run: bun run test-coverage
 
