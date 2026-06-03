@@ -1,6 +1,11 @@
 name: Init server
 description: Init bun with lib + config peers, then render wrangler.jsonc + worker types
 
+inputs:
+  vars-json:
+    description: secrets.GLH_VARS_JSON
+    required: true
+
 runs:
   using: composite
   steps:
@@ -10,5 +15,3 @@ runs:
     - name: Render wrangler.jsonc + types
       shell: bash
       run: bun run config
-      env:
-        GLH_VARS_JSON: ${{ secrets.GLH_VARS_JSON }}
