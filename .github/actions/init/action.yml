@@ -1,0 +1,14 @@
+name: Init server
+description: Init bun with lib + config peers, then render wrangler.jsonc + worker types
+
+runs:
+  using: composite
+  steps:
+    - uses: git-lfs-hub/ci-cd/actions/init@main
+      with: { peers: lib config }
+
+    - name: Render wrangler.jsonc + types
+      shell: bash
+      run: bun run config
+      env:
+        GLH_VARS_JSON: ${{ secrets.GLH_VARS_JSON }}

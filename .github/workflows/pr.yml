@@ -13,8 +13,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: git-lfs-hub/ci-cd/actions/init@main
-        with: { peers: lib }
+      - uses: ./.github/actions/init
 
       - run: bun run test-coverage
 

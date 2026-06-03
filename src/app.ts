@@ -7,7 +7,10 @@ import { ownersFromEnv } from "./login/utils";
 import { ObjectsStorage } from "./storage/objects";
 
 export type AppEnv = {
-  Bindings: CloudflareBindings;
+  // GITHUB_CACHE is optional: the KV binding is omitted from wrangler.jsonc (and
+  // thus CloudflareBindings) when no namespace id is configured — auth cache off.
+  // Consumers (GithubApi, resolveSession) already accept an undefined cache.
+  Bindings: CloudflareBindings & { GITHUB_CACHE?: KVNamespace };
   Variables: {
     user: string;
     access: "read" | "write";
