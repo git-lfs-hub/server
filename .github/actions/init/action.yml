@@ -7,6 +7,8 @@ runs:
     - uses: git-lfs-hub/ci-cd/actions/init@main
       with: { peers: lib config }
 
-    - name: Render wrangler.jsonc + types
+    - name: Render vars.json + wrangler.jsonc + types
       shell: bash
-      run: bun run config
+      run: |
+        bun run config:standalone
+        bun run types

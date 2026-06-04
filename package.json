@@ -3,6 +3,7 @@
   "type": "module",
   "scripts": {
     "config": "git-lfs-hub-config worker .",
+    "config:standalone": "git-lfs-hub-config vars . --env dev && bun run config && bun run types",
     "types": "wrangler types --env-interface CloudflareBindings",
     "compile": "tsgo --noEmit",
     "pretest": "bun run compile",
