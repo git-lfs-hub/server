@@ -141,9 +141,19 @@ describe("webAuthMiddleware", () => {
     });
   });
 
-  describe("localhost bypass", () => {
-    test("localhost requests skip auth entirely", async () => {
-      const res = await app("http://localhost/");
+  describe("local-dev bypass", () => {
+    test.each(["http://localhost/", "http://127.0.0.1/", "http://[::1]/"])(
+      "loopback host %s skips auth entirely",
+      async (url) => {
+        const res = await app(url);
+        expect(res.status).toBe(200);
+        expect(mockResolveSession).not.toHaveBeenCalled();
+      },
+    );
+
+    test("ENV=local skips auth on a non-loopback host", async () => {
+      const localEnv = { ...TEST_ENV, ENV: "local" } as unknown as CloudflareBindings;
+      const res = await makeApp(localEnv)("http://w/");
       expect(res.status).toBe(200);
       expect(mockResolveSession).not.toHaveBeenCalled();
     });

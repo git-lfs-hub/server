@@ -12,7 +12,7 @@
     "test:scripts": "vitest run --project 'scripts'",
     "test:watch": "vitest watch",
     "test-coverage": "bun run test --coverage",
-    "dev": "wrangler dev",
+    "dev": "wrangler dev --var ENV:local",
     "prebuild": "bun run compile",
     "build": "wrangler deploy --dry-run --outdir dist",
     "predeploy": "! [ -f ../.config.json ] || scripts/assert-deploy-target.sh",

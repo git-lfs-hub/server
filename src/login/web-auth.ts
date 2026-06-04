@@ -3,8 +3,12 @@ import type { AppEnv } from "../app";
 import { resolveSession } from "@git-lfs-hub/lib/auth";
 import { orgsFromEnv } from "./utils";
 
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
 export const webAuthMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
-  if (new URL(c.req.url).hostname === "localhost") return next();
+  // ENV is typed as a literal by `wrangler types`; widen for the local comparison.
+  const env: string = c.env.ENV;
+  if (env === "local" || LOOPBACK_HOSTS.has(new URL(c.req.url).hostname)) return next();
 
   const loginUrl = `/login/oauth/authorize?redirect_uri=${encodeURIComponent(c.env.GITHUB_APP_HOME + "/")}&scope=read%3Aorg`;
 
