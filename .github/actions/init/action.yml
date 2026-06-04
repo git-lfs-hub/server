@@ -10,5 +10,6 @@ runs:
     - name: Render vars.json + wrangler.jsonc + types
       shell: bash
       run: |
-        bun run config:standalone
+        bun run config:vars
+        bun run config
         bun run types

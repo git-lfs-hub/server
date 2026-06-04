@@ -2,8 +2,8 @@
   "name": "@git-lfs-hub/server",
   "type": "module",
   "scripts": {
+    "config:vars": "git-lfs-hub-config vars . --env dev",
     "config": "git-lfs-hub-config worker .",
-    "config:standalone": "git-lfs-hub-config vars . --env dev && bun run config",
     "types": "wrangler types --env-interface CloudflareBindings",
     "compile": "tsgo --noEmit",
     "pretest": "bun run compile",
