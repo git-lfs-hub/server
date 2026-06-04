@@ -10,5 +10,3 @@ runs:
     - name: Render wrangler.jsonc + types
       shell: bash
       run: bun run config
-      env:
-        GLH_VARS_JSON: ${{ vars.GLH_VARS_JSON }}
