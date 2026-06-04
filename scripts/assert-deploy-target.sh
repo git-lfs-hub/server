@@ -4,8 +4,15 @@
 set -Eeuo pipefail
 
 env=$(jq -r '.env' ../.config.json)
-name=$(jq -r '.name' wrangler.jsonc)
-if [[ "$name" != *"-$env" ]]; then
-  echo "::error::refusing deploy — Worker '$name' is not a -$env target" >&2
+
+wranglerName=$(jq -r '.name' wrangler.jsonc)
+if [[ "$wranglerName" != *"-$env" ]]; then
+  echo "::error::refusing deploy — Worker '$wranglerName' is not a -$env target" >&2
+  exit 1
+fi
+
+wranglerEnv=$(jq -r '.vars.ENV' wrangler.jsonc)
+if [[ "$wranglerEnv" != "$env" ]]; then
+  echo "::error::refusing deploy — vars.ENV '$wranglerEnv' does not match env '$env'" >&2
   exit 1
 fi

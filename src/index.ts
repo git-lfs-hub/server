@@ -10,6 +10,10 @@ if (env?.SENTRY_DSN) {
   const { sentry } = await import("@sentry/hono/cloudflare");
   app.use(sentry(app, (c) => ({
     dsn: c?.SENTRY_DSN,
+    release: c?.SENTRY_RELEASE,
+    // ENV scopes events + sourcemap resolution per deploy env (empty = prod).
+    environment: c?.ENV || "production",
+    dist: c?.ENV || undefined,
     sendDefaultPii: true
   })));
 }
