@@ -17,8 +17,8 @@ export const authMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
 
   const owner = c.req.param("owner");
   const repo = c.req.param("repo")?.replace(/\.git$/, "");
+  // istanbul ignore next -- defensive: guaranteed by /:owner/:repo/* route pattern
   if (!owner || !repo) {
-    // istanbul ignore next -- defensive: guaranteed by /:owner/:repo/* route pattern
     return c.json(DENY, 401, DENY_HEADERS);
   }
 

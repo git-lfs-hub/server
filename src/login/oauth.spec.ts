@@ -92,6 +92,24 @@ describe("GET /authorize", () => {
     const res = await get("/authorize?state=s");
     expect(res.status).toBe(400);
   });
+
+  test("seals an empty client_state when state query is absent", async () => {
+    // No &state — the sealed state must carry client_state "" (the `?? ""` path),
+    // so the eventual success redirect omits the state param entirely.
+    const res = await get("/authorize?redirect_uri=http://127.0.0.1:8080/");
+    expect(res.status).toBe(302);
+    const signedState = new URL(
+      res.headers.get("Location")!,
+    ).searchParams.get("state")!;
+
+    mockGitHub({ access_token: "ghu_token" });
+    const cb = await get(
+      `/callback?code=gh_code&state=${encodeURIComponent(signedState)}`,
+    );
+    const location = new URL(cb.headers.get("Location")!);
+    expect(location.searchParams.has("state")).toBe(false);
+    vi.restoreAllMocks();
+  });
 });
 
 // ---------------------------------------------------------------------------

@@ -72,6 +72,31 @@ describe("v1", () => {
     expect(await registry().resolveName("alice", "repo")).toBe("Alice/Repo");
     expect(await keys("Alice/Repo/")).toEqual([`Alice/Repo/${OID}`]);
   });
+
+  test("follows the cursor across truncated R2 list pages", async () => {
+    // A real R2 list only truncates past 1000 prefixes; a stub bucket forces the
+    // multi-page path so discoverRepos' cursor loop is exercised. The owner-level
+    // listing spans two pages; each repo-level listing is a single page.
+    const pages: Record<string, { delimitedPrefixes: string[]; truncated: boolean; cursor?: string }[]> = {
+      "": [
+        { delimitedPrefixes: ["Alice/"], truncated: true, cursor: "1" },
+        { delimitedPrefixes: ["Bob/"], truncated: false },
+      ],
+      "Alice/": [{ delimitedPrefixes: ["Alice/Repo/"], truncated: false }],
+      "Bob/": [{ delimitedPrefixes: ["Bob/Repo/"], truncated: false }],
+    };
+    const bucket = {
+      async list({ prefix, cursor }: { prefix: string; cursor?: string }) {
+        return pages[prefix][cursor ? Number(cursor) : 0];
+      },
+    } as unknown as R2Bucket;
+
+    await v1({ LFS_BUCKET: bucket, REPOS: env.REPOS } as unknown as CloudflareBindings, step);
+
+    // Both pages' repos were discovered and pinned.
+    expect(await registry().resolveName("alice", "repo")).toBe("Alice/Repo");
+    expect(await registry().resolveName("bob", "repo")).toBe("Bob/Repo");
+  });
 });
 
 // ---------------------------------------------------------------------------
