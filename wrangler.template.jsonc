@@ -47,6 +47,9 @@
       "tag": "v2",
       "new_sqlite_classes": ["Repos"],
     },
+    {
+      "tag": "v3",
+    },
   ],
   "workflows": [
     {
