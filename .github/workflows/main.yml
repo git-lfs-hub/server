@@ -4,6 +4,9 @@ on:
   push: { branches: [main] }
   workflow_dispatch: # Can run manually from the Actions tab
 
+env:
+  GLH_VARS_JSON: ${{ vars.GLH_VARS_JSON || secrets.GLH_VARS_JSON }}
+
 jobs:
   test:
     name: Test
