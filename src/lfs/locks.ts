@@ -109,6 +109,7 @@ locksApi.post(
     const user = c.get("user");
 
     const stub = await getLocksStub(c);
+    // istanbul ignore next -- `uuid` is guaranteed by the /:id/unlock route pattern
     const lock = uuid ? await stub.getById(uuid) : null;
     if (!lock) return c.json({ message: "Lock not found" }, 404);
     if (lock.owner !== user && !body.force) {
@@ -138,6 +139,7 @@ async function listLocks(
   },
 ): Promise<{ page: LockRow[]; next_cursor: string | undefined }> {
   const cursor = opts.cursor ? parseInt(opts.cursor, 10) : null;
+  // istanbul ignore next -- both callers coalesce limit to a number, so `?? 0` is dead
   const limit = Math.min(Math.max(opts.limit ?? 0, 0) || 100, 1000);
 
   const stub = await getLocksStub(c);
