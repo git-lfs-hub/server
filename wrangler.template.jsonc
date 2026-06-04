@@ -41,14 +41,14 @@
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["Locks"],
     },
     {
       "tag": "v2",
-      "new_sqlite_classes": ["Repos"],
+      "new_sqlite_classes": ["Locks"],
     },
     {
       "tag": "v3",
+      "new_sqlite_classes": ["Repos"],
     },
   ],
   "workflows": [
