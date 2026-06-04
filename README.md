@@ -47,11 +47,11 @@ Objects are transferred via presigned R2 URLs -- the Worker issues URLs but does
 
 ### Deploy repo pipeline
 
-In **[git-lfs-hub/deploy](https://github.com/git-lfs-hub/deploy)**, `bun run config` (Turbo task `//#config`) renders `wrangler.jsonc` and `worker-configuration.d.ts` at the repo root, symlinks them into `server/`, and points `server/public/` at the docs build output. Run `turbo dev`, `turbo build`, or `turbo deploy` from the monorepo root so docs, config, and the Worker stay in sync — `@git-lfs-hub/server#{build,test,deploy}` all depend on `@git-lfs-hub/docs#build`, which itself depends on `//#config`.
+In **[git-lfs-hub/deploy](https://github.com/git-lfs-hub/deploy)**, `//#config` renders `vars.json` and symlinks it into `server/` (and points `server/public/` at the docs build output); the `@git-lfs-hub/server#config` task then renders `wrangler.jsonc` + `github-app.md` from that `vars.json`, and `worker-configuration.d.ts` comes from `bun run types`. Run `turbo dev`, `turbo build`, or `turbo deploy` from the monorepo root so docs, config, and the Worker stay in sync — `@git-lfs-hub/server#{build,test,deploy}` all depend on `@git-lfs-hub/docs#build`, which itself depends on `//#config`.
 
 ### Standalone development
 
-Use this when you work from **[git-lfs-hub/server](https://github.com/git-lfs-hub/server)** only. Keep local `wrangler.jsonc`, `worker-configuration.d.ts`, `vars.json`, and a `public/` tree (built docs or a minimal static site)—the deploy checkout normally supplies these via symlinks. Configure Wrangler secrets and R2 bindings for your account, then:
+Use this when you work from **[git-lfs-hub/server](https://github.com/git-lfs-hub/server)** only. Keep local `wrangler.jsonc`, `worker-configuration.d.ts`, `vars.json`, and a `public/` tree (built docs or a minimal static site)—the deploy checkout normally generates these (and symlinks `public/`). Configure Wrangler secrets and R2 bindings for your account, then:
 
 ```sh
 bun install
