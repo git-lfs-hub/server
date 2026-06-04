@@ -81,7 +81,7 @@ describe("v1", () => {
 // The WorkflowEntrypoint constructor rejects a synthetic ctx, and `run` only
 // reads `this.env` — so invoke it via the prototype with a minimal `this`.
 function run(ver: number) {
-  const event = { payload: { ver }, timestamp: new Date(0), instanceId: "test" };
+  const event = { payload: { ver }, timestamp: new Date(0), instanceId: "test", workflowName: "test" };
   return Migration.prototype.run.call({ env } as unknown as Migration, event, step);
 }
 

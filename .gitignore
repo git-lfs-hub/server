@@ -50,6 +50,7 @@ lerna-debug.log*
 wrangler.jsonc
 github-app.md
 vars.json
+vars.input.json
 !test/**/wrangler.jsonc
 
 worker-configuration.d.ts
