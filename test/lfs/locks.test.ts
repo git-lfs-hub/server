@@ -278,7 +278,7 @@ describe("listLocksHandler", () => {
       env,
     );
     const {
-      locks: [first, second, third],
+      locks: [, second, third],
     } = (await allRes.json()) as any;
 
     // Alice fetches page 1; next_cursor points to the second lock

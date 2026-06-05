@@ -35,7 +35,7 @@ function makeApp(env = TEST_ENV) {
     c.json({ ok: true, user: c.get("user") }),
   );
   return (url: string, init: RequestInit = {}) =>
-    hono.request(url, { ...init, headers: { ...(init.headers ?? {}) } }, env);
+    hono.request(url, { ...init, headers: { ...init.headers } }, env);
 }
 
 const app = makeApp();

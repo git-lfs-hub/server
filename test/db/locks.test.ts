@@ -132,7 +132,7 @@ describe("list", () => {
   });
 
   test("cursor returns locks with id >= cursor", async () => {
-    const a = await repo().create("alice", "a.bin");
+    await repo().create("alice", "a.bin");
     const b = await repo().create("alice", "b.bin");
     const c = await repo().create("alice", "c.bin");
     const rows = await repo().list({
@@ -145,7 +145,7 @@ describe("list", () => {
   });
 
   test("cursor works correctly when cursor lock is deleted", async () => {
-    const a = await repo().create("alice", "a.bin");
+    await repo().create("alice", "a.bin");
     const b = await repo().create("alice", "b.bin");
     const c = await repo().create("alice", "c.bin");
     await repo().delete(b.uuid);
