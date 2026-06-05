@@ -1,4 +1,4 @@
-import { reset } from 'cloudflare:test';
+import { reset, createExecutionContext } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { describe, test, expect, vi, afterEach } from 'vitest';
 
@@ -42,6 +42,7 @@ function batch(path: string, op: 'upload' | 'download', oid: string) {
       body: JSON.stringify({ operation: op, objects: [{ oid, size: 3 }] }),
     },
     env,
+    createExecutionContext(),
   );
 }
 
