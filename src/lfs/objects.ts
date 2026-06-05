@@ -30,6 +30,8 @@ objectsApi.post(
     }
 
     const name = await resolveName(c);
+    const owner = c.req.param('owner')!;
+    const repo = c.req.param('repo')!.replace(/\.git$/, '');
     const bucket = c.get('objects');
     const results = await Promise.all(
       objects.map(async (obj) => {
@@ -86,6 +88,8 @@ objectsApi.post(
   async (c) => {
     const body = c.req.valid('json');
     const key = `${await resolveName(c)}/${body.oid}`;
+    const owner = c.req.param('owner')!;
+    const repo = c.req.param('repo')!.replace(/\.git$/, '');
 
     const info = await c.get('objects').verifyObject(key, body.size);
     if ('message' in info) return c.json({ message: info.message }, 422);
