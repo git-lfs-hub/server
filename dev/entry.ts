@@ -37,7 +37,7 @@ async function devFetch(
   return (await mockS3(req, merged)) ?? app.fetch(req, merged, ctx);
 }
 
-export { Locks } from "../src/index";
+export { Locks, Repos, Migration } from "../src/index";
 
 export default {
   fetch: (req: Request, env: CloudflareBindings, ctx: ExecutionContext) =>
