@@ -2,8 +2,6 @@ import { env } from "cloudflare:workers";
 import { reset } from "cloudflare:test";
 import { describe, test, expect, vi, afterEach } from "vitest";
 import { lfsApi } from "../../src/lfs/index";
-import { Hono } from "hono";
-import type { AppEnv } from "../../src/app";
 
 const LFS = {
   Accept: "application/vnd.git-lfs+json",
