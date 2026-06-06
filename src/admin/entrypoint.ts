@@ -1,12 +1,16 @@
+import type { LfsServer } from '@git-lfs-hub/lib/contracts';
 import { WorkerEntrypoint } from 'cloudflare:workers';
 
 // -----------------------------------------------------------------------------
 // Service-binding RPC surface for the GC admin worker. No HTTP admin routes on
 // lfs-server — humans use the admin worker, which calls these over the
 // LFS_SERVER service binding (entrypoint AdminEntrypoint).
+//
+// `implements LfsServer` ties this to the shared cross-worker contract: a drift
+// from what lfs-admin expects fails this worker's compile.
 // -----------------------------------------------------------------------------
 
-export class AdminEntrypoint extends WorkerEntrypoint<CloudflareBindings> {
+export class AdminEntrypoint extends WorkerEntrypoint<CloudflareBindings> implements LfsServer {
   // Soft-delete: block all LFS access for the repo (downloads + uploads → 404).
   async blockRepo(owner: string, repo: string): Promise<void> {
     await this.env.REPOS.getByName('global').block(owner, repo);
