@@ -51,9 +51,9 @@
     "producers": [
       {
         "binding": "OBJECT_EVENTS",
-        "queue": "lfs-object-events",
-      },
-    ],
+        "queue": "lfs-object-events"
+      }
+    ]
   },
   "vars": {
     "S3_ENDPOINT": "https://account-id.r2.cloudflarestorage.com",

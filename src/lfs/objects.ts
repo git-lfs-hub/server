@@ -25,13 +25,19 @@ objectsApi.post(
     const origin = new URL(c.req.url).origin;
     const { operation, objects } = body;
 
+    const owner = c.req.param('owner')!;
+    const repo = c.req.param('repo')!.replace(/\.git$/, '');
+
+    // Soft-deleted / purged repos serve 404 for every LFS operation.
+    if (await c.env.REPOS.getByName('global').isBlocked(owner, repo)) {
+      return c.json({ message: 'Not Found' }, 404);
+    }
+
     if (operation === 'upload' && c.get('access') !== 'write') {
       return c.json({ message: 'You must have push access to upload this object' }, 403);
     }
 
     const name = await resolveName(c);
-    const owner = c.req.param('owner')!;
-    const repo = c.req.param('repo')!.replace(/\.git$/, '');
     const bucket = c.get('objects');
     const results = await Promise.all(
       objects.map(async (obj) => {

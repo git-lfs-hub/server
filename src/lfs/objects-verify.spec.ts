@@ -35,16 +35,8 @@ function makeApp(objects: Record<string, number> = {}) {
   app.route('/lfs', objectsApi);
   // Inject the Repos binding so resolveName() works without a real DO.
   return {
-<<<<<<< HEAD
-    request: (input: string, init?: RequestInit) => app.request(input, init, ENV),
-=======
-    request: (
-      input: string,
-      init?: RequestInit,
-      env?: any,
-      ctx?: ExecutionContext,
-    ) => app.request(input, init, { ...ENV, ...env }, ctx),
->>>>>>> abdcf02 (object event fixes)
+    request: (input: string, init?: RequestInit, env?: any, ctx?: ExecutionContext) =>
+      app.request(input, init, { ...ENV, ...env }, ctx),
   };
 }
 

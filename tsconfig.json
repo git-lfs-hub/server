@@ -13,5 +13,5 @@
   },
   // scripts/create-presign-spec is its own bun package (own deps + lockfile, run
   // directly via bun) — typechecked by its own tooling, not this config.
-  "include": ["src", "test", "vitest.config.ts", "worker-configuration.d.ts"]
+  "include": ["src", "test", "dev", "vitest.config.ts", "worker-configuration.d.ts"]
 }

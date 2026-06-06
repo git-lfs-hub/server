@@ -68,4 +68,11 @@ export class Locks extends DurableObject {
   async delete(uuid: string): Promise<void> {
     await this.db.delete(locks).where(eq(locks.uuid, uuid));
   }
+
+  // Destroy the repo's entire Locks DO (purge cleanup). deleteAll() wipes all
+  // storage including the table; purge is terminal, so we don't recreate the
+  // schema — a later access reconstructs it via the constructor. Idempotent.
+  async purge(): Promise<void> {
+    await this.ctx.storage.deleteAll();
+  }
 }

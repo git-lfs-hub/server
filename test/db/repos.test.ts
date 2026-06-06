@@ -62,3 +62,42 @@ describe('migration version', () => {
     expect(await registry().getVer('ghost', 'repo')).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// block / unblock / isBlocked / markPurged (serve state)
+// ---------------------------------------------------------------------------
+
+describe('block state', () => {
+  test('a freshly pinned repo is not blocked', async () => {
+    await registry().resolveName('Alice', 'Repo');
+    expect(await registry().isBlocked('alice', 'repo')).toBe(false);
+  });
+
+  test('block flips isBlocked true, read case-insensitively', async () => {
+    await registry().resolveName('Alice', 'Repo');
+    await registry().block('Alice', 'Repo');
+    expect(await registry().isBlocked('alice', 'repo')).toBe(true);
+  });
+
+  test('unblock clears the block', async () => {
+    await registry().resolveName('Alice', 'Repo');
+    await registry().block('alice', 'repo');
+    await registry().unblock('alice', 'repo');
+    expect(await registry().isBlocked('alice', 'repo')).toBe(false);
+  });
+
+  test('markPurged keeps isBlocked true', async () => {
+    await registry().resolveName('Alice', 'Repo');
+    await registry().markPurged('alice', 'repo');
+    expect(await registry().isBlocked('alice', 'repo')).toBe(true);
+  });
+
+  test('isBlocked is false for an unknown repo', async () => {
+    expect(await registry().isBlocked('ghost', 'repo')).toBe(false);
+  });
+
+  test('block is a no-op when the row is absent', async () => {
+    await registry().block('ghost', 'repo');
+    expect(await registry().isBlocked('ghost', 'repo')).toBe(false);
+  });
+});

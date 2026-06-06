@@ -28,3 +28,5 @@ export default app;
 export { Locks } from './db/locks';
 export { Repos } from './db/repos';
 export { Migration } from './db/migration';
+// Service-binding RPC target for the GC admin worker (LFS_SERVER binding).
+export { AdminEntrypoint } from './admin/entrypoint';

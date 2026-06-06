@@ -91,3 +91,28 @@ describe('canonical prefix addressing', () => {
     expect(body.objects[0].error.code).toBe(404);
   });
 });
+
+describe('blocked repo', () => {
+  const oid = 'b'.repeat(64);
+
+  function registry() {
+    return env.REPOS.getByName('global');
+  }
+
+  test('block → batch 404; unblock → resumes', async () => {
+    await batch('Alice/Repo', 'upload', oid); // pin the row
+
+    await registry().block('alice', 'repo');
+    expect((await batch('alice/repo', 'download', oid)).status).toBe(404);
+    expect((await batch('alice/repo', 'upload', oid)).status).toBe(404);
+
+    await registry().unblock('alice', 'repo');
+    expect((await batch('alice/repo', 'download', oid)).status).toBe(200);
+  });
+
+  test('purged repo also serves 404', async () => {
+    await batch('Alice/Repo', 'upload', oid);
+    await registry().markPurged('alice', 'repo');
+    expect((await batch('alice/repo', 'download', oid)).status).toBe(404);
+  });
+});
