@@ -4,7 +4,8 @@
     "noEmit": true,
     "paths": {
       "@/*": ["../../src/*"]
-    }
+    },
+    "types": ["node", "@cloudflare/vitest-pool-workers/types"]
   },
-  "include": ["index.ts", "../../src"]
+  "include": ["index.ts", "../../src", "../../worker-configuration.d.ts"]
 }
