@@ -1,5 +1,6 @@
-import type { LfsServer } from '@git-lfs-hub/lib/contracts';
 import { WorkerEntrypoint } from 'cloudflare:workers';
+
+import type { LfsServer } from '@git-lfs-hub/lib/contracts';
 
 // -----------------------------------------------------------------------------
 // Service-binding RPC surface for the GC admin worker. No HTTP admin routes on
