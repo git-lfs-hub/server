@@ -98,7 +98,6 @@ describe('webAuthMiddleware', () => {
     } as unknown as CloudflareBindings;
 
     test('member of one of two orgs passes', async () => {
-      mockOrgRole.mockReset();
       mockOrgRole.mockResolvedValueOnce(null).mockResolvedValueOnce('member');
       const res = await makeApp(envOrgs)('http://w/');
       expect(res.status).toBe(200);
