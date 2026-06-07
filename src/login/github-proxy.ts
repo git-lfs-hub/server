@@ -1,6 +1,7 @@
-import { Hono } from "hono";
-import type { AppEnv } from "../app";
-import { githubProxyFetch } from "@git-lfs-hub/lib/github";
+import { githubProxyFetch } from '@git-lfs-hub/lib/github';
+import { Hono } from 'hono';
+
+import type { AppEnv } from '../app';
 
 // ---------------------------------------------------------------------------
 // Github /api Proxy
@@ -13,29 +14,27 @@ export const githubProxy = new Hono<AppEnv>();
 // ---------------------------------------------------------------------------
 // GCM and gh detect GHES mode from this; installed_version >= 3.2 and
 // verifiable_password_authentication: false enable OAuth and suppress basic-auth prompts.
-githubProxy.get("/v3/meta", (c) =>
+githubProxy.get('/v3/meta', (c) =>
   c.json({
     verifiable_password_authentication: false,
-    installed_version: "3.20.0",
+    installed_version: '3.20.0',
   }),
 );
 
 const GITHUB_HEADERS = {
-  Accept: "application/vnd.github+json",
-  "X-GitHub-Api-Version": "2022-11-28",
+  Accept: 'application/vnd.github+json',
+  'X-GitHub-Api-Version': '2022-11-28',
 };
 
 // ---------------------------------------------------------------------------
 // GET /api/v3/user
 // ---------------------------------------------------------------------------
 // GCM calls this after the OAuth flow to validate the token and resolve the GitHub username.
-githubProxy.get("/v3/user", (c) =>
-  githubProxyFetch("https://api.github.com/user", {
+githubProxy.get('/v3/user', (c) =>
+  githubProxyFetch('https://api.github.com/user', {
     headers: {
       ...GITHUB_HEADERS,
-      ...(c.req.header("Authorization")
-        ? { Authorization: c.req.header("Authorization")! }
-        : {}),
+      ...(c.req.header('Authorization') ? { Authorization: c.req.header('Authorization')! } : {}),
     },
   }),
 );
@@ -44,15 +43,13 @@ githubProxy.get("/v3/user", (c) =>
 // POST /api/graphql
 // ---------------------------------------------------------------------------
 // gh CLI uses this for username resolution (UserCurrent query) and to inspect X-OAuth-Scopes.
-githubProxy.post("/graphql", async (c) =>
-  githubProxyFetch("https://api.github.com/graphql", {
-    method: "POST",
+githubProxy.post('/graphql', async (c) =>
+  githubProxyFetch('https://api.github.com/graphql', {
+    method: 'POST',
     headers: {
       ...GITHUB_HEADERS,
-      "Content-Type": "application/json",
-      ...(c.req.header("Authorization")
-        ? { Authorization: c.req.header("Authorization")! }
-        : {}),
+      'Content-Type': 'application/json',
+      ...(c.req.header('Authorization') ? { Authorization: c.req.header('Authorization')! } : {}),
     },
     body: await c.req.text(),
   }),

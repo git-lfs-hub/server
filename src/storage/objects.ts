@@ -1,4 +1,4 @@
-import { presignR2ObjectUrl } from "./presign";
+import { presignR2ObjectUrl } from './presign';
 
 export interface ObjectsStorageEnv {
   LFS_BUCKET: R2Bucket;
@@ -20,24 +20,21 @@ export class ObjectsStorage {
     key: string,
     verifyHref: string,
   ): Promise<
-    | { actions: { upload: { href: string }; verify: { href: string } } }
-    | Record<string, never>
+    { actions: { upload: { href: string }; verify: { href: string } } } | Record<string, never>
   > {
-    if (!("message" in (await this.verifyObject(key)))) return {};
-    const href = await this.presignedObjectUrl("PUT", key);
+    if (!('message' in (await this.verifyObject(key)))) return {};
+    const href = await this.presignedObjectUrl('PUT', key);
     return { actions: { upload: { href }, verify: { href: verifyHref } } };
   }
 
   async presignDownload(
     key: string,
   ): Promise<
-    | { actions: { download: { href: string } } }
-    | { error: { code: number; message: string } }
+    { actions: { download: { href: string } } } | { error: { code: number; message: string } }
   > {
     const info = await this.verifyObject(key);
-    if ("message" in info)
-      return { error: { code: 404, message: info.message } };
-    const href = await this.presignedObjectUrl("GET", key);
+    if ('message' in info) return { error: { code: 404, message: info.message } };
+    const href = await this.presignedObjectUrl('GET', key);
     return { actions: { download: { href } } };
   }
 
@@ -46,13 +43,12 @@ export class ObjectsStorage {
     size?: number,
   ): Promise<Record<string, never> | { message: string }> {
     const obj = await this.env.LFS_BUCKET.head(key);
-    if (!obj) return { message: "Object not found" };
-    if (size !== undefined && size !== obj.size)
-      return { message: "Object size mismatch" };
+    if (!obj) return { message: 'Object not found' };
+    if (size !== undefined && size !== obj.size) return { message: 'Object size mismatch' };
     return {};
   }
 
-  private presignedObjectUrl(method: "GET" | "PUT", key: string): Promise<string> {
+  private presignedObjectUrl(method: 'GET' | 'PUT', key: string): Promise<string> {
     return presignR2ObjectUrl({
       method,
       endpoint: this.env.S3_ENDPOINT,

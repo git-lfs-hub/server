@@ -2,8 +2,7 @@
 export function stubRepos() {
   return {
     getByName: () => ({
-      resolveName: async (owner: string, repo: string) =>
-        `${owner}/${repo.replace(/\.git$/, "")}`,
+      resolveName: async (owner: string, repo: string) => `${owner}/${repo.replace(/\.git$/, '')}`,
     }),
   };
 }

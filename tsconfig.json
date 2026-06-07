@@ -6,18 +6,12 @@
     "strict": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
-    "lib": [
-      "ESNext"
-    ],
+    "lib": ["ESNext"],
     "jsx": "react-jsx",
     "jsxImportSource": "hono/jsx",
-    "types": [
-        "./worker-configuration.d.ts",
-        "node",
-        "@cloudflare/vitest-pool-workers/types"
-    ]
+    "types": ["./worker-configuration.d.ts", "node", "@cloudflare/vitest-pool-workers/types"]
   },
   // scripts/create-presign-spec is its own bun package (own deps + lockfile, run
   // directly via bun) — typechecked by its own tooling, not this config.
-  "include": ["src", "test", "vitest.config.ts", "worker-configuration.d.ts"],
+  "include": ["src", "test", "vitest.config.ts", "worker-configuration.d.ts"]
 }

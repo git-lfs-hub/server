@@ -1,16 +1,17 @@
-import type { MiddlewareHandler } from "hono";
-import type { AppEnv } from "../app";
-import { resolveSession } from "@git-lfs-hub/lib/auth";
-import { orgsFromEnv } from "./utils";
+import { resolveSession } from '@git-lfs-hub/lib/auth';
+import type { MiddlewareHandler } from 'hono';
 
-const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+import type { AppEnv } from '../app';
+import { orgsFromEnv } from './utils';
+
+const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
 export const webAuthMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   // ENV is typed as a literal by `wrangler types`; widen for the local comparison.
   const env: string = c.env.ENV;
-  if (env === "local" || LOOPBACK_HOSTS.has(new URL(c.req.url).hostname)) return next();
+  if (env === 'local' || LOOPBACK_HOSTS.has(new URL(c.req.url).hostname)) return next();
 
-  const loginUrl = `/login/oauth/authorize?redirect_uri=${encodeURIComponent(c.env.GITHUB_APP_HOME + "/")}&scope=read%3Aorg`;
+  const loginUrl = `/login/oauth/authorize?redirect_uri=${encodeURIComponent(c.env.GITHUB_APP_HOME + '/')}&scope=read%3Aorg`;
 
   const session = await resolveSession(c, {
     secret: c.env.LOGIN_SECRET,
@@ -30,12 +31,12 @@ export const webAuthMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
     const roles = await Promise.all(allowOrgs.map((slug) => api.orgRole(slug)));
     if (!roles.some((r) => r !== null))
       return c.text(
-        `Access denied: ${username} is not an active member of ${allowOrgs.join(", ")}`,
+        `Access denied: ${username} is not an active member of ${allowOrgs.join(', ')}`,
         403,
       );
   }
 
-  c.set("user", username);
+  c.set('user', username);
   if (new URL(c.req.url).search) return c.redirect(new URL(c.req.url).pathname);
   await next();
 };

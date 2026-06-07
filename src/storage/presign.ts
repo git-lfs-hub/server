@@ -1,7 +1,7 @@
-import { AwsClient } from "aws4fetch";
+import { AwsClient } from 'aws4fetch';
 
 export type PresignR2ObjectInput = {
-  method: "GET" | "PUT";
+  method: 'GET' | 'PUT';
   endpoint: string;
   bucket: string;
   key: string;
@@ -14,12 +14,12 @@ export type PresignR2ObjectInput = {
 
 /** Path-style URL: `{endpoint}/{bucket}/{key…}` (slashes in `key` are path segments). */
 export function buildR2ObjectUrl(endpoint: string, bucket: string, key: string): URL {
-  const base = endpoint.replace(/\/$/, "");
+  const base = endpoint.replace(/\/$/, '');
   const u = new URL(base);
-  const segments = [bucket, ...key.split("/")].map((s) =>
-    encodeURIComponent(s).replace(/%2F/g, "/"),
+  const segments = [bucket, ...key.split('/')].map((s) =>
+    encodeURIComponent(s).replace(/%2F/g, '/'),
   );
-  u.pathname = `/${segments.join("/")}`;
+  u.pathname = `/${segments.join('/')}`;
   return u;
 }
 
@@ -29,13 +29,13 @@ export function buildR2ObjectUrl(endpoint: string, bucket: string, key: string):
  */
 export async function presignR2ObjectUrl(input: PresignR2ObjectInput): Promise<string> {
   const u = buildR2ObjectUrl(input.endpoint, input.bucket, input.key);
-  u.searchParams.set("X-Amz-Expires", String(input.expiresSeconds));
+  u.searchParams.set('X-Amz-Expires', String(input.expiresSeconds));
 
   const aws = new AwsClient({
     accessKeyId: input.accessKeyId,
     secretAccessKey: input.secretAccessKey,
-    service: "s3",
-    region: "auto",
+    service: 's3',
+    region: 'auto',
     retries: 0,
   });
 
@@ -43,8 +43,8 @@ export async function presignR2ObjectUrl(input: PresignR2ObjectInput): Promise<s
     method: input.method,
     aws: {
       signQuery: true,
-      service: "s3",
-      region: "auto",
+      service: 's3',
+      region: 'auto',
       datetime: input.datetime,
     },
   });

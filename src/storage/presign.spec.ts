@@ -1,16 +1,13 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-import { describe, test, expect } from "vitest";
+import { describe, test, expect } from 'vitest';
 
-import { presignR2ObjectUrl } from "./presign";
+import { presignR2ObjectUrl } from './presign';
 
 const golden = JSON.parse(
-  readFileSync(
-    join(dirname(fileURLToPath(import.meta.url)), "presign.spec.json"),
-    "utf8",
-  ),
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'presign.spec.json'), 'utf8'),
 ) as {
   frozenDatetime: string;
   config: {
@@ -25,11 +22,11 @@ const golden = JSON.parse(
   expectedGetPresignedUrl: string;
 };
 
-describe("presign golden fixture", () => {
-  test("PUT presigned URL matches fixture (regenerate: scripts/run.sh create-presign-spec)", async () => {
+describe('presign golden fixture', () => {
+  test('PUT presigned URL matches fixture (regenerate: scripts/run.sh create-presign-spec)', async () => {
     const c = golden.config;
     const href = await presignR2ObjectUrl({
-      method: "PUT",
+      method: 'PUT',
       endpoint: c.S3_ENDPOINT,
       bucket: c.S3_BUCKET_NAME,
       key: c.KEY,
@@ -41,10 +38,10 @@ describe("presign golden fixture", () => {
     expect(href).toBe(golden.expectedPutPresignedUrl);
   });
 
-  test("GET presigned URL matches fixture (regenerate: scripts/run.sh create-presign-spec)", async () => {
+  test('GET presigned URL matches fixture (regenerate: scripts/run.sh create-presign-spec)', async () => {
     const c = golden.config;
     const href = await presignR2ObjectUrl({
-      method: "GET",
+      method: 'GET',
       endpoint: c.S3_ENDPOINT,
       bucket: c.S3_BUCKET_NAME,
       key: c.KEY,
