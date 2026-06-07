@@ -1,5 +1,6 @@
-import { resolveSession } from '@git-lfs-hub/lib/auth';
 import type { MiddlewareHandler } from 'hono';
+
+import { resolveSession } from '@git-lfs-hub/lib/auth';
 
 import type { AppEnv } from '../app';
 import { orgsFromEnv } from './utils';

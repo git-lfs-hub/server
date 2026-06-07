@@ -1,11 +1,12 @@
+import { Hono } from 'hono';
+import { afterEach, describe, expect, test, vi } from 'vitest';
+
 import {
   getSessionCookie,
   setSessionCookie,
   ACCESS_COOKIE,
   type SessionTokens,
 } from '@git-lfs-hub/lib/auth/session';
-import { Hono } from 'hono';
-import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import type { AppEnv } from '../app';
 import { webAuthMiddleware } from './web-auth';

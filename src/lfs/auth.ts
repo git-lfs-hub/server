@@ -1,6 +1,7 @@
+import type { MiddlewareHandler } from 'hono';
+
 import { authHeaderToken } from '@git-lfs-hub/lib/auth';
 import { GithubApi } from '@git-lfs-hub/lib/github';
-import type { MiddlewareHandler } from 'hono';
 
 import type { AppEnv } from '../app';
 

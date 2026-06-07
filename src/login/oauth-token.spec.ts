@@ -1,5 +1,6 @@
-import { encryptSession } from '@git-lfs-hub/lib/auth/session';
 import { vi, describe, test, expect, afterEach } from 'vitest';
+
+import { encryptSession } from '@git-lfs-hub/lib/auth/session';
 
 import { oauthApi } from './oauth';
 import { tokenApi } from './oauth-token';

@@ -1,6 +1,7 @@
+import { Hono } from 'hono';
+
 import { decryptSession } from '@git-lfs-hub/lib/auth';
 import { githubAccessTokenFetch } from '@git-lfs-hub/lib/github';
-import { Hono } from 'hono';
 
 import type { AppEnv } from '../app';
 
