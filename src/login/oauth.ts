@@ -1,12 +1,13 @@
-import { Hono } from "hono";
-import type { AppEnv } from "../app";
 import {
   githubOAuthUrl,
   oauthCallback,
   oauthSuccessUrl,
   oauthErrorUrl,
   setSessionCookie,
-} from "@git-lfs-hub/lib/auth";
+} from '@git-lfs-hub/lib/auth';
+import { Hono } from 'hono';
+
+import type { AppEnv } from '../app';
 
 // ---------------------------------------------------------------------------
 // OAuth (browser) login flow
@@ -20,17 +21,17 @@ export const oauthApi = new Hono<AppEnv>();
 // The client's loopback redirect_uri can't be pre-registered on our app, so we
 // intercept here, seal it into a signed state token, and redirect GitHub to our
 // own /callback URL instead.
-oauthApi.get("/authorize", async (c) => {
+oauthApi.get('/authorize', async (c) => {
   const { redirect_uri, scope, state, login } = c.req.query();
-  if (!redirect_uri) return c.json({ error: "missing_redirect_uri" }, 400);
+  if (!redirect_uri) return c.json({ error: 'missing_redirect_uri' }, 400);
   const url = await githubOAuthUrl({
     clientId: c.env.GITHUB_CLIENT_ID,
     callbackUrl: `${c.env.GITHUB_APP_HOME}/login/oauth/callback`,
     secret: c.env.LOGIN_SECRET,
     state: {
       redirect_uri, // client loopback — sealed in state, used by oauthSuccessUrl
-      client_state: state ?? "", // client's opaque state
-      scopes: scope ?? "",
+      client_state: state ?? '', // client's opaque state
+      scopes: scope ?? '',
     },
     login,
   });
@@ -43,7 +44,7 @@ oauthApi.get("/authorize", async (c) => {
 // GitHub delivers the auth code here (our registered callback); we exchange it
 // with our credentials, encrypt the real token as a short-lived ephemeral code,
 // and redirect the client back to its original loopback URL.
-oauthApi.get("/callback", async (c) => {
+oauthApi.get('/callback', async (c) => {
   const { code, state } = c.req.query();
   const result = await oauthCallback({
     code,
@@ -52,11 +53,10 @@ oauthApi.get("/callback", async (c) => {
     clientId: c.env.GITHUB_CLIENT_ID,
     clientSecret: c.env.GITHUB_CLIENT_SECRET,
     callbackUrl: `${c.env.GITHUB_APP_HOME}/login/oauth/callback`,
-  })
+  });
 
   if (!result.ok) {
-    if (result.state)
-      return c.redirect(oauthErrorUrl(result.state, result.error), 302);
+    if (result.state) return c.redirect(oauthErrorUrl(result.state, result.error), 302);
     return c.json({ error: result.error }, 400);
   }
 

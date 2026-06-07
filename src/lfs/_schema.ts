@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 // --- Shared primitives -------------------------------------------------------
 
@@ -28,7 +28,7 @@ export const lockSchema = z.object({
 // --- Batch API ---------------------------------------------------------------
 
 export const batchRequestSchema = z.object({
-  operation: z.enum(["upload", "download"]),
+  operation: z.enum(['upload', 'download']),
   transfers: z.array(z.string()).optional(), // optional per spec; reference incorrectly required it
   objects: z.array(
     z.object({
@@ -38,7 +38,7 @@ export const batchRequestSchema = z.object({
     }),
   ),
   ref: refSchema.optional(),
-  hash_algo: z.string().default("sha256"),
+  hash_algo: z.string().default('sha256'),
 });
 
 export const batchObjectSchema = z.object({
@@ -58,9 +58,9 @@ export const batchObjectSchema = z.object({
 // hash_algo is absent from the spec entirely. We use literals here because
 // this schema validates what OUR server constructs, not what clients send.
 export const batchResponseSchema = z.object({
-  transfer: z.literal("basic"),
+  transfer: z.literal('basic'),
   objects: z.array(batchObjectSchema),
-  hash_algo: z.literal("sha256"),
+  hash_algo: z.literal('sha256'),
 });
 
 // --- Verify upload -----------------------------------------------------------

@@ -1,8 +1,8 @@
-import { DurableObject } from "cloudflare:workers";
-import { asc, eq, and, gte } from "drizzle-orm";
-import { drizzle, DrizzleSqliteDODatabase } from "drizzle-orm/durable-sqlite";
+import { DurableObject } from 'cloudflare:workers';
+import { asc, eq, and, gte } from 'drizzle-orm';
+import { drizzle, DrizzleSqliteDODatabase } from 'drizzle-orm/durable-sqlite';
 
-import { locks } from "./_schema";
+import { locks } from './_schema';
 
 export type LockRow = typeof locks.$inferSelect;
 
@@ -27,20 +27,14 @@ export class Locks extends DurableObject {
   }
 
   async getByPath(path: string): Promise<LockRow | null> {
-    const result = await this.db
-      .select()
-      .from(locks)
-      .where(eq(locks.path, path));
+    const result = await this.db.select().from(locks).where(eq(locks.path, path));
     return result[0];
   }
 
   async create(owner: string, path: string): Promise<LockRow> {
     const uuid = crypto.randomUUID();
-    const locked_at = new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
-    const [row] = await this.db
-      .insert(locks)
-      .values({ uuid, path, locked_at, owner })
-      .returning();
+    const locked_at = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+    const [row] = await this.db.insert(locks).values({ uuid, path, locked_at, owner }).returning();
     return row;
   }
 

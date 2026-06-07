@@ -1,8 +1,8 @@
-import { DurableObject } from "cloudflare:workers";
-import { and, eq, sql } from "drizzle-orm";
-import { drizzle, DrizzleSqliteDODatabase } from "drizzle-orm/durable-sqlite";
+import { DurableObject } from 'cloudflare:workers';
+import { and, eq, sql } from 'drizzle-orm';
+import { drizzle, DrizzleSqliteDODatabase } from 'drizzle-orm/durable-sqlite';
 
-import { repos, CURRENT_VER } from "./repos-schema";
+import { repos, CURRENT_VER } from './repos-schema';
 
 // Singleton registry (addressed `getByName("global")`): one `repos` row per
 // repo, keyed by lowercase (owner, repo), pinning a canonical `name` — the R2
@@ -29,7 +29,7 @@ export class Repos extends DurableObject {
 
   // Pins the canonical `name` on first access (first-writer-wins) and returns it.
   async resolveName(owner: string, repo: string): Promise<string> {
-    const candidate = `${owner}/${repo.replace(/\.git$/, "")}`;
+    const candidate = `${owner}/${repo.replace(/\.git$/, '')}`;
     // No-op set keeps the existing name on conflict, but makes RETURNING emit the
     // row in one query (DO NOTHING returns nothing on conflict).
     // New repos are born at CURRENT_VER — created now, they have nothing to
@@ -54,11 +54,7 @@ export class Repos extends DurableObject {
     return row?.ver ?? 0;
   }
 
-  async setVer(
-    owner: string,
-    repo: string,
-    ver: number,
-  ): Promise<void> {
+  async setVer(owner: string, repo: string, ver: number): Promise<void> {
     await this.db
       .update(repos)
       .set({ ver: ver })
@@ -69,7 +65,7 @@ export class Repos extends DurableObject {
 function identity(owner: string, repo: string) {
   return {
     owner: owner.toLowerCase(),
-    repo: repo.replace(/\.git$/, "").toLowerCase(),
+    repo: repo.replace(/\.git$/, '').toLowerCase(),
   };
 }
 

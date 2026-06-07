@@ -1,7 +1,4 @@
-export function orgsFromEnv(env: {
-  GITHUB_ORGS?: string;
-  GITHUB_ORG?: string;
-}): string[] {
+export function orgsFromEnv(env: { GITHUB_ORGS?: string; GITHUB_ORG?: string }): string[] {
   return [
     ...parseGithubList(env.GITHUB_ORGS),
     ...(env.GITHUB_ORG?.trim() ? [env.GITHUB_ORG.trim()] : []),
@@ -17,7 +14,7 @@ export function ownersFromEnv(env: {
   if (orgs.length) return new Set(orgs);
   const user = env.GITHUB_USER?.trim() || null;
   if (user) return new Set([user]);
-  throw new Error("Set GITHUB_ORG[S] or GITHUB_USER");
+  throw new Error('Set GITHUB_ORG[S] or GITHUB_USER');
 }
 
 export function parseGithubList(s: string | undefined): string[] {

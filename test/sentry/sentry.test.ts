@@ -1,5 +1,6 @@
-import { test, expect, describe } from "vitest";
-import app from "../../src/index";
+import { test, expect, describe } from 'vitest';
+
+import app from '../../src/index';
 
 // ---------------------------------------------------------------------------
 // Regression: sentry() was guarded by `if (process.env.SENTRY_DSN)` at module
@@ -14,18 +15,19 @@ import app from "../../src/index";
 // sentry() is never called, no handler in app.routes carries that marker.
 // ---------------------------------------------------------------------------
 
-describe("sentry initialization", () => {
-  test("sentry() was called — wrapped middleware is present in app routes", () => {
+describe('sentry initialization', () => {
+  test('sentry() was called — wrapped middleware is present in app routes', () => {
     // Bug:  if (process.env.SENTRY_DSN) skips sentry() → no wrapped handlers
     // Fix:  sentry() always called → applyPatches Proxy-wraps handlers
     const hasSentry = app.routes.some(
-      (r) => (r.handler as unknown as { __sentry_original__?: unknown }).__sentry_original__ != null,
+      (r) =>
+        (r.handler as unknown as { __sentry_original__?: unknown }).__sentry_original__ != null,
     );
     expect(hasSentry).toBe(true);
   });
 
-  test("sentry options callback is invoked on request", async () => {
+  test('sentry options callback is invoked on request', async () => {
     // Any request triggers the sentry options factory; status doesn't matter.
-    await app.request("http://localhost/");
+    await app.request('http://localhost/');
   });
 });
