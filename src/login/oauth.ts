@@ -1,3 +1,5 @@
+import { Hono } from 'hono';
+
 import {
   githubOAuthUrl,
   oauthCallback,
@@ -5,7 +7,6 @@ import {
   oauthErrorUrl,
   setSessionCookie,
 } from '@git-lfs-hub/lib/auth';
-import { Hono } from 'hono';
 
 import type { AppEnv } from '../app';
 

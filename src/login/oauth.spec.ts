@@ -1,5 +1,6 @@
-import { decryptSession } from '@git-lfs-hub/lib/auth';
 import { vi, describe, test, expect, afterEach } from 'vitest';
+
+import { decryptSession } from '@git-lfs-hub/lib/auth';
 
 import { oauthApi } from './oauth';
 

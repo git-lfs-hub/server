@@ -6,13 +6,14 @@
  * - `referenceAwsSdk*` — same inputs via @aws-sdk/s3-request-presigner
  *   (differs on PUT because the SDK adds optional checksum / x-id query params).
  */
+
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 
 import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-import { presignR2ObjectUrl } from '../../src/storage/presign.ts';
+import { presignR2ObjectUrl } from '@/storage/presign';
 
 const OUT = resolve(process.argv[2] ?? 'src/storage/presign.spec.json');
 

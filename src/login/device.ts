@@ -1,5 +1,6 @@
-import { githubProxyFetch } from '@git-lfs-hub/lib/github';
 import { Hono } from 'hono';
+
+import { githubProxyFetch } from '@git-lfs-hub/lib/github';
 
 import type { AppEnv } from '../app';
 
