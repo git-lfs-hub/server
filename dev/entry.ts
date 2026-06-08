@@ -4,7 +4,8 @@
 //   R2 binding (miniflare has no S3-compatible HTTP endpoint).
 // - Injects DEV=1 so prod-only env checks relax.
 
-import app from '../src/index';
+import app from '@/index';
+
 import { mockGitHub } from './mock-github';
 import { mockS3 } from './mock-s3';
 
@@ -37,7 +38,7 @@ async function devFetch(
   return (await mockS3(req, merged)) ?? app.fetch(req, merged, ctx);
 }
 
-export { Locks, Repos, Migration, AdminEntrypoint } from '../src/index';
+export { Locks, Repos, Migration, AdminEntrypoint } from '@/index';
 
 export default {
   fetch: (req: Request, env: CloudflareBindings, ctx: ExecutionContext) => devFetch(req, env, ctx),

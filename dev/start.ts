@@ -14,10 +14,11 @@ const child = spawn(
     'dev/entry.ts',
     '-c',
     'wrangler.jsonc',
-    // Share state with admin's vite dev so the R2 explorer at
+    // Persist to server/.wrangler/state (wrangler's default, made explicit).
+    // admin's vite dev points its persistState here too, so its R2 explorer at
     // localhost:5173/cdn-cgi/explorer/r2/lfs-objects sees the same objects.
     '--persist-to',
-    '../admin/.wrangler/state',
+    '.wrangler/state',
   ],
   { stdio: 'inherit' },
 );

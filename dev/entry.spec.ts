@@ -19,7 +19,7 @@ const declaredClasses = [...templateSrc.matchAll(/"class_name"\s*:\s*"([A-Za-z0-
 
 /** Names re-exported by dev/entry.ts from the real worker module. */
 const reExports = new Set(
-  [...entrySrc.matchAll(/export\s*\{([^}]*)\}\s*from\s*['"]\.\.\/src\/index['"]/g)]
+  [...entrySrc.matchAll(/export\s*\{([^}]*)\}\s*from\s*['"]@\/index['"]/g)]
     .flatMap((m) => m[1].split(','))
     .map((s) => s.trim())
     .filter(Boolean)

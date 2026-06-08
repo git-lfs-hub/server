@@ -11,9 +11,14 @@ export const loginApi = new Hono<AppEnv>();
 
 loginApi.use('/*', async (c, next) => {
   if (c.env) {
-    const missing = (
-      ['GITHUB_APP_HOME', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET'] as const
-    ).filter((key) => !c.env[key]);
+    // OAuth creds are mocked in dev/local (see dev/mock-github.ts), so don't
+    // require them there. ENV is typed as a literal by `wrangler types`.
+    const env: string = c.env.ENV;
+    const required =
+      env === 'local' || env === 'dev'
+        ? (['GITHUB_APP_HOME'] as const)
+        : (['GITHUB_APP_HOME', 'GITHUB_CLIENT_ID', 'GITHUB_CLIENT_SECRET'] as const);
+    const missing = required.filter((key) => !c.env[key]);
     if (missing.length)
       throw new Error(
         `Missing required vars: ${missing.join(', ')} — set them in .dev.vars (local) or via wrangler secret put (production)`,
