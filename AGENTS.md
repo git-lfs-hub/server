@@ -14,6 +14,7 @@
 - Main flows first, edge cases and error handling last
 - Callers before called
 - Tests mirror main file order
+- Keep comments brief. Focus on the "why" and non-obvious.
 
 ## Testing
 
