@@ -16,4 +16,10 @@ describe('repos table', () => {
     const ver = columns.find((c) => c.name === 'ver');
     expect(ver?.default).toBe(0);
   });
+
+  test('state defaults to active', () => {
+    const { columns } = getTableConfig(repos);
+    const state = columns.find((c) => c.name === 'state');
+    expect(state?.default).toBe('active');
+  });
 });

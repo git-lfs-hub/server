@@ -3,6 +3,8 @@ import assert from 'assert';
 import { sValidator } from '@hono/standard-validator';
 import { Hono } from 'hono';
 
+import type { ObjectEvent } from '@git-lfs-hub/lib/contracts';
+
 import type { AppEnv } from '../app';
 import { batchRequestSchema, verifyRequestSchema } from './_schema';
 import { resolveName } from './name';
@@ -25,6 +27,14 @@ objectsApi.post(
     const body = c.req.valid('json');
     const origin = new URL(c.req.url).origin;
     const { operation, objects } = body;
+
+    const owner = c.req.param('owner')!;
+    const repo = c.req.param('repo')!.replace(/\.git$/, '');
+
+    // Soft-deleted / purged repos serve 404 for every LFS operation.
+    if (await c.env.REPOS.getByName('global').isBlocked(owner, repo)) {
+      return c.json({ message: 'Not Found' }, 404);
+    }
 
     if (operation === 'upload' && c.get('access') !== 'write') {
       return c.json({ message: 'You must have push access to upload this object' }, 403);
@@ -53,6 +63,21 @@ objectsApi.post(
       }),
     );
 
+    const messages = results
+      .filter((r) => !('error' in r))
+      .map((r) => ({
+        body: {
+          owner,
+          repo,
+          oid: r.oid,
+          size: r.size,
+          operation,
+        } satisfies ObjectEvent,
+      }));
+    if (messages.length > 0) {
+      c.executionCtx.waitUntil(c.env.OBJECT_EVENTS.sendBatch(messages));
+    }
+
     return c.json({
       transfer: 'basic',
       hash_algo: 'sha256',
@@ -72,9 +97,21 @@ objectsApi.post(
   async (c) => {
     const body = c.req.valid('json');
     const key = `${await resolveName(c)}/${body.oid}`;
+    const owner = c.req.param('owner')!;
+    const repo = c.req.param('repo')!.replace(/\.git$/, '');
 
     const info = await c.get('objects').verifyObject(key, body.size);
     if ('message' in info) return c.json({ message: info.message }, 422);
+
+    c.executionCtx.waitUntil(
+      c.env.OBJECT_EVENTS.send({
+        owner,
+        repo,
+        oid: body.oid,
+        size: body.size,
+        operation: 'verify',
+      } satisfies ObjectEvent),
+    );
 
     return c.json({});
   },

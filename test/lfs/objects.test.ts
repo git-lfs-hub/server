@@ -1,4 +1,4 @@
-import { reset } from 'cloudflare:test';
+import { reset, createExecutionContext } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { describe, test, expect, vi, afterEach } from 'vitest';
 
@@ -42,6 +42,7 @@ function batch(path: string, op: 'upload' | 'download', oid: string) {
       body: JSON.stringify({ operation: op, objects: [{ oid, size: 3 }] }),
     },
     env,
+    createExecutionContext(),
   );
 }
 
@@ -88,5 +89,30 @@ describe('canonical prefix addressing', () => {
     const res = await batch('alice/repo', 'download', oid);
     const body = (await res.json()) as any;
     expect(body.objects[0].error.code).toBe(404);
+  });
+});
+
+describe('blocked repo', () => {
+  const oid = 'b'.repeat(64);
+
+  function registry() {
+    return env.REPOS.getByName('global');
+  }
+
+  test('block → batch 404; unblock → resumes', async () => {
+    await batch('Alice/Repo', 'upload', oid); // pin the row
+
+    await registry().block('alice', 'repo');
+    expect((await batch('alice/repo', 'download', oid)).status).toBe(404);
+    expect((await batch('alice/repo', 'upload', oid)).status).toBe(404);
+
+    await registry().unblock('alice', 'repo');
+    expect((await batch('alice/repo', 'download', oid)).status).toBe(200);
+  });
+
+  test('purged repo also serves 404', async () => {
+    await batch('Alice/Repo', 'upload', oid);
+    await registry().markPurged('alice', 'repo');
+    expect((await batch('alice/repo', 'download', oid)).status).toBe(404);
   });
 });

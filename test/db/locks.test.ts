@@ -1,4 +1,4 @@
-import { reset } from 'cloudflare:test';
+import { reset, runInDurableObject } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { describe, test, expect, afterEach } from 'vitest';
 
@@ -185,5 +185,33 @@ describe('delete', () => {
     const b = await repo().create('alice', 'b.bin');
     await repo().delete(a.uuid);
     expect(await repo().getById(b.uuid)).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// purge
+// ---------------------------------------------------------------------------
+
+// purge() deleteAll()s the whole DO. The instance is left without a `locks`
+// table (terminal — a real later access reconstructs it via the constructor),
+// so assertions read raw storage via runInDurableObject rather than the lock
+// methods, which would hit "no such table".
+describe('purge', () => {
+  test('drops the entire DO — no rows and no table left', async () => {
+    const stub = repo();
+    await stub.create('alice', 'a.bin');
+    await stub.create('alice', 'b.bin');
+    await stub.purge();
+    await runInDurableObject(stub, (_instance, state) => {
+      const tables = state.storage.sql
+        .exec("SELECT name FROM sqlite_master WHERE type = 'table'")
+        .toArray();
+      expect(tables.some((t) => t.name === 'locks')).toBe(false);
+    });
+  });
+
+  test('is idempotent on an empty repo', async () => {
+    await expect(repo().purge()).resolves.toBeUndefined();
+    await expect(repo().purge()).resolves.toBeUndefined();
   });
 });
