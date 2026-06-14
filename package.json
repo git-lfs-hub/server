@@ -2,7 +2,7 @@
   "name": "@git-lfs-hub/server",
   "type": "module",
   "scripts": {
-    "config:vars": "git-lfs-hub-config vars . --env dev",
+    "config:vars": "GLH_ENV=dev git-lfs-hub-config vars .",
     "config": "git-lfs-hub-config worker .",
     "types": "wrangler types --env-interface CloudflareBindings",
     "compile": "tsgo --noEmit",
