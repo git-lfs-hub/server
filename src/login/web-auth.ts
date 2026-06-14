@@ -1,6 +1,7 @@
 import type { MiddlewareHandler } from 'hono';
 
 import { resolveSession } from '@git-lfs-hub/lib/auth';
+import { GithubError } from '@git-lfs-hub/lib/github';
 
 import type { AppEnv } from '../app';
 import { orgsFromEnv } from './utils';
@@ -29,7 +30,16 @@ export const webAuthMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
       return c.text(`Access denied: ${username} is not ${allowUser}`, 403);
   } else {
     const allowOrgs = orgsFromEnv(c.env);
-    const roles = await Promise.all(allowOrgs.map((slug) => api.orgRole(slug)));
+    const roles = await Promise.all(
+      allowOrgs.map(async (slug) => {
+        try {
+          return await api.orgRole(slug);
+        } catch (e) {
+          if (e instanceof GithubError && e.code === 'forbidden') return null;
+          throw e;
+        }
+      }),
+    );
     if (!roles.some((r) => r !== null))
       return c.text(
         `Access denied: ${username} is not an active member of ${allowOrgs.join(', ')}`,

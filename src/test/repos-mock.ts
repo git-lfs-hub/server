@@ -3,6 +3,7 @@ export function stubRepos() {
   return {
     getByName: () => ({
       resolveName: async (owner: string, repo: string) => `${owner}/${repo.replace(/\.git$/, '')}`,
+      isBlocked: async () => false,
     }),
   };
 }

@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 
 import type { AppEnv } from '../app';
 import { ObjectsStorage } from '../storage/objects';
@@ -8,8 +8,11 @@ import { stubRepos } from '../test/repos-mock';
 import { objectsApi } from './objects';
 
 function makeEnv() {
+  const send = vi.fn(async () => {});
+  const sendBatch = vi.fn(async () => {});
   return {
     LFS_BUCKET: emptyR2Bucket(),
+    OBJECT_EVENTS: { send, sendBatch },
     S3_ENDPOINT: 'https://test-account.r2.cloudflarestorage.com',
     S3_ACCESS_KEY_ID: 'test-key',
     S3_SECRET_ACCESS_KEY: 'test-secret',
@@ -18,6 +21,11 @@ function makeEnv() {
     REPOS: stubRepos(),
   } as any;
 }
+
+const testCtx = {
+  waitUntil: () => {},
+  passThroughOnException: () => {},
+} as unknown as ExecutionContext;
 
 function makeApp(access: 'read' | 'write' = 'write') {
   const app = new Hono<AppEnv>();
@@ -54,6 +62,7 @@ describe('batch upload', () => {
         }),
       },
       makeEnv(),
+      testCtx,
     );
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
@@ -76,6 +85,7 @@ describe('batch upload', () => {
         }),
       },
       makeEnv(),
+      testCtx,
     );
     const body = (await res.json()) as any;
     expect(body.objects[0].actions.verify.href).toBe('http://worker/lfs/alice/repo/objects/verify');
@@ -99,6 +109,7 @@ describe('batch authorization', () => {
         }),
       },
       makeEnv(),
+      testCtx,
     );
     expect(res.status).toBe(403);
   });
@@ -115,6 +126,7 @@ describe('batch authorization', () => {
         }),
       },
       makeEnv(),
+      testCtx,
     );
     expect(res.status).toBe(200);
   });
@@ -137,6 +149,7 @@ describe('batch download', () => {
         }),
       },
       makeEnv(),
+      testCtx,
     );
     const body = (await res.json()) as any;
     expect(res.status).toBe(200);
@@ -153,6 +166,7 @@ describe('batch download', () => {
         body: JSON.stringify({ operation: 'download', objects: [] }),
       },
       makeEnv(),
+      testCtx,
     );
     const body = (await res.json()) as any;
     expect(res.status).toBe(200);
@@ -174,6 +188,7 @@ describe('request validation', () => {
         body: 'not json',
       },
       makeEnv(),
+      testCtx,
     );
     expect(res.status).toBe(400);
   });
@@ -187,6 +202,7 @@ describe('request validation', () => {
         body: JSON.stringify({ operation: 'delete', objects: [] }),
       },
       makeEnv(),
+      testCtx,
     );
     expect(res.status).toBe(422);
   });
@@ -200,7 +216,114 @@ describe('request validation', () => {
         body: JSON.stringify({ operation: 'upload' }),
       },
       makeEnv(),
+      testCtx,
     );
     expect(res.status).toBe(422);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// OBJECT_EVENTS queue producer
+// ---------------------------------------------------------------------------
+
+describe('batch queue producer', () => {
+  test('upload batch sends one message per object with operation=upload', async () => {
+    const env = makeEnv();
+    const res = await app.request(
+      'http://worker/lfs/alice/repo/objects/batch',
+      {
+        method: 'POST',
+        headers: LFS_HEADERS,
+        body: JSON.stringify({
+          operation: 'upload',
+          objects: [
+            { oid: 'aaa', size: 10 },
+            { oid: 'bbb', size: 20 },
+          ],
+        }),
+      },
+      env,
+      testCtx,
+    );
+    expect(res.status).toBe(200);
+    expect(env.OBJECT_EVENTS.sendBatch).toHaveBeenCalledTimes(1);
+    expect(env.OBJECT_EVENTS.send).not.toHaveBeenCalled();
+    expect(env.OBJECT_EVENTS.sendBatch.mock.calls[0][0]).toEqual([
+      { body: { owner: 'alice', repo: 'repo', oid: 'aaa', size: 10, operation: 'upload' } },
+      { body: { owner: 'alice', repo: 'repo', oid: 'bbb', size: 20, operation: 'upload' } },
+    ]);
+  });
+
+  test('download batch filters out objects with errors before enqueueing', async () => {
+    const env = makeEnv();
+    // bucket is empty → all download presigns will return 404 errors
+    const res = await app.request(
+      'http://worker/lfs/alice/repo/objects/batch',
+      {
+        method: 'POST',
+        headers: LFS_HEADERS,
+        body: JSON.stringify({
+          operation: 'download',
+          objects: [{ oid: 'missing', size: 10 }],
+        }),
+      },
+      env,
+      testCtx,
+    );
+    expect(res.status).toBe(200);
+    expect(env.OBJECT_EVENTS.sendBatch).not.toHaveBeenCalled();
+    expect(env.OBJECT_EVENTS.send).not.toHaveBeenCalled();
+  });
+
+  test('empty objects array does not enqueue', async () => {
+    const env = makeEnv();
+    await app.request(
+      'http://worker/lfs/alice/repo/objects/batch',
+      {
+        method: 'POST',
+        headers: LFS_HEADERS,
+        body: JSON.stringify({ operation: 'download', objects: [] }),
+      },
+      env,
+      testCtx,
+    );
+    expect(env.OBJECT_EVENTS.sendBatch).not.toHaveBeenCalled();
+    expect(env.OBJECT_EVENTS.send).not.toHaveBeenCalled();
+  });
+
+  test('strips .git suffix from repo in messages', async () => {
+    const env = makeEnv();
+    await app.request(
+      'http://worker/lfs/alice/repo.git/objects/batch',
+      {
+        method: 'POST',
+        headers: LFS_HEADERS,
+        body: JSON.stringify({
+          operation: 'upload',
+          objects: [{ oid: 'abc', size: 1 }],
+        }),
+      },
+      env,
+      testCtx,
+    );
+    expect(env.OBJECT_EVENTS.sendBatch.mock.calls[0][0][0].body.repo).toBe('repo');
+  });
+
+  test('forbidden upload (read-only) does not enqueue', async () => {
+    const env = makeEnv();
+    await makeApp('read').request(
+      'http://worker/lfs/alice/repo/objects/batch',
+      {
+        method: 'POST',
+        headers: LFS_HEADERS,
+        body: JSON.stringify({
+          operation: 'upload',
+          objects: [{ oid: 'abc', size: 10 }],
+        }),
+      },
+      env,
+      testCtx,
+    );
+    expect(env.OBJECT_EVENTS.sendBatch).not.toHaveBeenCalled();
   });
 });

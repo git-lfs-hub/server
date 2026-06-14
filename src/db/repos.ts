@@ -2,7 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { and, eq, sql } from 'drizzle-orm';
 import { drizzle, DrizzleSqliteDODatabase } from 'drizzle-orm/durable-sqlite';
 
-import { repos, CURRENT_VER } from './repos-schema';
+import { repos, CURRENT_VER, RepoState } from './repos-schema';
 
 // Singleton registry (addressed `getByName("global")`): one `repos` row per
 // repo, keyed by lowercase (owner, repo), pinning a canonical `name` — the R2
@@ -21,9 +21,18 @@ export class Repos extends DurableObject {
           repo    TEXT NOT NULL,
           name    TEXT NOT NULL,
           ver     INTEGER NOT NULL DEFAULT 0,
+          state   TEXT NOT NULL DEFAULT 'active',
           PRIMARY KEY (owner, repo)
         )
       `);
+      // Backfill `state` on DOs created before block/unblock existed.
+      try {
+        this.ctx.storage.sql.exec(
+          `ALTER TABLE repos ADD COLUMN state TEXT NOT NULL DEFAULT 'active'`,
+        );
+      } catch {
+        // column already exists
+      }
     });
   }
 
@@ -58,6 +67,35 @@ export class Repos extends DurableObject {
     await this.db
       .update(repos)
       .set({ ver: ver })
+      .where(rowFilter(identity(owner, repo)));
+  }
+
+  // Serve/block state. block/unblock/markPurged no-op when the row is absent
+  // (first LFS access creates it via resolveName); blocked + purged both serve 404.
+  async block(owner: string, repo: string): Promise<void> {
+    await this.setState(owner, repo, 'blocked');
+  }
+
+  async unblock(owner: string, repo: string): Promise<void> {
+    await this.setState(owner, repo, 'active');
+  }
+
+  async markPurged(owner: string, repo: string): Promise<void> {
+    await this.setState(owner, repo, 'purged');
+  }
+
+  async isBlocked(owner: string, repo: string): Promise<boolean> {
+    const [row] = await this.db
+      .select()
+      .from(repos)
+      .where(rowFilter(identity(owner, repo)));
+    return row?.state === 'blocked' || row?.state === 'purged';
+  }
+
+  private async setState(owner: string, repo: string, state: RepoState): Promise<void> {
+    await this.db
+      .update(repos)
+      .set({ state })
       .where(rowFilter(identity(owner, repo)));
   }
 }

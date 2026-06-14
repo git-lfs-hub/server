@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { vi, describe, test, expect, beforeEach } from 'vitest';
 
+import { GithubError } from '@git-lfs-hub/lib/github';
+
 import type { AppEnv } from '../app';
 
 const { mockOrgRole, mockResolveSession } = vi.hoisted(() => ({
@@ -88,6 +90,18 @@ describe('webAuthMiddleware', () => {
       expect(body).toContain('bob');
       expect(body).toContain('TestOrg');
     });
+
+    test('forbidden org error is treated as non-membership (403)', async () => {
+      mockOrgRole.mockRejectedValue(new GithubError('forbidden', 'orgRole: 403', 403));
+      const res = await app('http://w/');
+      expect(res.status).toBe(403);
+    });
+
+    test('non-forbidden org error propagates (500, not 403)', async () => {
+      mockOrgRole.mockRejectedValue(new GithubError('transient', 'orgRole: 500', 500));
+      const res = await app('http://w/');
+      expect(res.status).toBe(500);
+    });
   });
 
   describe('GITHUB_ORGS (multi-org)', () => {
@@ -98,7 +112,6 @@ describe('webAuthMiddleware', () => {
     } as unknown as CloudflareBindings;
 
     test('member of one of two orgs passes', async () => {
-      mockOrgRole.mockReset();
       mockOrgRole.mockResolvedValueOnce(null).mockResolvedValueOnce('member');
       const res = await makeApp(envOrgs)('http://w/');
       expect(res.status).toBe(200);

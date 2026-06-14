@@ -63,4 +63,17 @@ describe('login config validation', () => {
     } as any);
     expect(res.status).toBe(500);
   });
+
+  test.each(['local', 'dev'])('%s: GITHUB_CLIENT_ID/SECRET not required', async (env) => {
+    const app = new Hono<AppEnv>();
+    app.route('/', loginApi);
+    const e = {
+      GITHUB_APP_HOME: 'https://example.com',
+      LOGIN_SECRET: 'a'.repeat(64),
+      GITHUB_ORG: 'my-org',
+      ENV: env,
+    } as unknown as CloudflareBindings;
+    const res = await app.request('/api/v3/meta', {}, e);
+    expect(res.status).not.toBe(500);
+  });
 });
