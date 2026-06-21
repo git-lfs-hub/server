@@ -25,7 +25,7 @@ app.route('/', routes);
 export default app;
 
 // required for Wrangler
-export { Locks } from './db/locks';
+export { Objects } from './db/objects';
 export { Repos } from './db/repos';
 export { Migration } from './db/migration';
 // Service-binding RPC target for the GC admin worker (LFS_SERVER binding).

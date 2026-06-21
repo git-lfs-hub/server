@@ -2,10 +2,10 @@ import { Hono } from 'hono';
 import { describe, test, expect, vi } from 'vitest';
 
 import type { AppEnv } from '../app';
-import { stubRepos } from '../test/repos-mock';
+import { stubRepos, stubObjects } from '../test/repos-mock';
 import { objectsApi } from './objects';
 
-const ENV = { REPOS: stubRepos() } as any;
+const ENV = { REPOS: stubRepos(), OBJECTS: stubObjects() } as any;
 
 function makeEnv() {
   const send = vi.fn(async () => {});

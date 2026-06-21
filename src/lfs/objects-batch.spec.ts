@@ -4,7 +4,7 @@ import { describe, test, expect, vi } from 'vitest';
 import type { AppEnv } from '../app';
 import { ObjectsStorage } from '../storage/objects';
 import { emptyR2Bucket } from '../test/r2-bucket-mock';
-import { stubRepos } from '../test/repos-mock';
+import { stubRepos, stubObjects } from '../test/repos-mock';
 import { objectsApi } from './objects';
 
 function makeEnv() {
@@ -19,6 +19,7 @@ function makeEnv() {
     S3_BUCKET_NAME: 'lfs-objects',
     S3_PRESIGN_TTL: '3600',
     REPOS: stubRepos(),
+    OBJECTS: stubObjects(),
   } as any;
 }
 

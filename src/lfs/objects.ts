@@ -6,8 +6,8 @@ import { Hono } from 'hono';
 import type { ObjectEvent } from '@git-lfs-hub/lib/contracts';
 
 import type { AppEnv } from '../app';
+import { Repos } from '../db/repos';
 import { batchRequestSchema, verifyRequestSchema } from './_schema';
-import { resolveName } from './name';
 
 // -----------------------------------------------------------------------------
 // https://github.com/git-lfs/git-lfs/blob/main/docs/api/batch.md
@@ -31,8 +31,9 @@ objectsApi.post(
     const owner = c.req.param('owner')!;
     const repo = c.req.param('repo')!.replace(/\.git$/, '');
 
+    const registry = Repos.global(c.env);
     // Soft-deleted / purged repos serve 404 for every LFS operation.
-    if (await c.env.REPOS.getByName('global').isBlocked(owner, repo)) {
+    if (await registry.isBlocked(owner, repo)) {
       return c.json({ message: 'Not Found' }, 404);
     }
 
@@ -40,10 +41,19 @@ objectsApi.post(
       return c.json({ message: 'You must have push access to upload this object' }, 403);
     }
 
-    const name = await resolveName(c);
+    const name = await registry.resolveName(owner, repo);
+    const blocklist = c.env.OBJECTS.getByName(name);
     const bucket = c.get('objects');
     const results = await Promise.all(
       objects.map(async (obj) => {
+        // Per-object soft-delete: blocked OIDs 404 without touching siblings.
+        if (await blocklist.isBlocked(obj.oid)) {
+          return {
+            oid: obj.oid,
+            size: obj.size,
+            error: { code: 404, message: 'Object not found' },
+          };
+        }
         const key = `${name}/${obj.oid}`;
         if (operation === 'upload') {
           const verifyHref = `${origin}/lfs/${name}/objects/verify`;
@@ -96,9 +106,18 @@ objectsApi.post(
   }),
   async (c) => {
     const body = c.req.valid('json');
-    const key = `${await resolveName(c)}/${body.oid}`;
     const owner = c.req.param('owner')!;
     const repo = c.req.param('repo')!.replace(/\.git$/, '');
+
+    const registry = Repos.global(c.env);
+    const name = await registry.resolveName(owner, repo);
+    if (
+      (await registry.isBlocked(owner, repo)) ||
+      (await c.env.OBJECTS.getByName(name).isBlocked(body.oid))
+    ) {
+      return c.json({ message: 'Not Found' }, 404);
+    }
+    const key = `${name}/${body.oid}`;
 
     const info = await c.get('objects').verifyObject(key, body.size);
     if ('message' in info) return c.json({ message: info.message }, 422);

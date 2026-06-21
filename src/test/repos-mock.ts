@@ -7,3 +7,12 @@ export function stubRepos() {
     }),
   };
 }
+
+/** Minimal Objects DO namespace: nothing blocked. */
+export function stubObjects() {
+  return {
+    getByName: () => ({
+      isBlocked: async () => false,
+    }),
+  };
+}

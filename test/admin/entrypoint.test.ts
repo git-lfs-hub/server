@@ -40,16 +40,16 @@ describe('blockRepo / unblockRepo', () => {
 // ---------------------------------------------------------------------------
 
 describe('purgeRepo', () => {
-  test('wipes the Locks DO and marks the registry purged', async () => {
+  test('wipes the Objects DO and marks the registry purged', async () => {
     const name = await registry().resolveName('Alice', 'Repo');
-    const locks = env.LOCKS.getByName(name);
-    await locks.create('alice', 'file.bin');
+    const objects = env.OBJECTS.getByName(name);
+    await objects.createLock('alice', 'file.bin');
 
     await entrypoint().purgeRepo('alice', 'repo');
 
-    // purge deleteAll()s the Locks DO — assert the table is gone, not via the
+    // purge deleteAll()s the Objects DO — assert the table is gone, not via the
     // lock methods (which would hit "no such table" on the wiped instance).
-    await runInDurableObject(locks, (_instance, state) => {
+    await runInDurableObject(objects, (_instance, state) => {
       const tables = state.storage.sql
         .exec("SELECT name FROM sqlite_master WHERE type = 'table'")
         .toArray();
@@ -62,5 +62,36 @@ describe('purgeRepo', () => {
     await registry().resolveName('Alice', 'Repo');
     await entrypoint().purgeRepo('alice', 'repo');
     await expect(entrypoint().purgeRepo('alice', 'repo')).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// blockObjects / unblockObjects / purgeObjects — per-object RPC, keyed on prefix
+// ---------------------------------------------------------------------------
+
+describe('blockObjects / unblockObjects / purgeObjects', () => {
+  const oid = 'a'.repeat(64);
+
+  // (owner, repo) resolves to canonical prefix "Alice/Repo".
+  function objects() {
+    return env.OBJECTS.getByName('Alice/Repo');
+  }
+
+  test('blockObjects blocks under the resolved prefix, read case-insensitively', async () => {
+    await registry().resolveName('Alice', 'Repo');
+    await entrypoint().blockObjects('alice', 'repo', [oid]);
+    expect(await objects().isBlocked(oid)).toBe(true);
+  });
+
+  test('unblockObjects clears the block', async () => {
+    await entrypoint().blockObjects('Alice', 'Repo', [oid]);
+    await entrypoint().unblockObjects('Alice', 'Repo', [oid]);
+    expect(await objects().isBlocked(oid)).toBe(false);
+  });
+
+  test('purgeObjects drops the blocklist row', async () => {
+    await entrypoint().blockObjects('Alice', 'Repo', [oid]);
+    await entrypoint().purgeObjects('Alice', 'Repo', [oid]);
+    expect(await objects().isBlocked(oid)).toBe(false);
   });
 });

@@ -46,6 +46,15 @@ function batch(path: string, op: 'upload' | 'download', oid: string) {
   );
 }
 
+function verify(path: string, oid: string) {
+  return lfsApi.request(
+    `http://w/${path}/objects/verify`,
+    { method: 'POST', headers: LFS, body: JSON.stringify({ oid, size: 3 }) },
+    env,
+    createExecutionContext(),
+  );
+}
+
 describe('lfsApi objects middleware (ObjectsStorage init)', () => {
   test('ObjectsStorage is initialized for objects routes', async () => {
     const res = await lfsApi.request(
@@ -114,5 +123,56 @@ describe('blocked repo', () => {
     await batch('Alice/Repo', 'upload', oid);
     await registry().markPurged('alice', 'repo');
     expect((await batch('alice/repo', 'download', oid)).status).toBe(404);
+  });
+});
+
+describe('blocked oids', () => {
+  const oid = 'b'.repeat(64);
+  const sibling = 'c'.repeat(64);
+
+  function registry() {
+    return env.REPOS.getByName('global');
+  }
+  // Blocklist lives on the per-prefix Objects DO, keyed by canonical prefix.
+  function objects() {
+    return env.OBJECTS.getByName('Alice/Repo');
+  }
+
+  // Block under the canonical prefix; request in a different case still maps to it.
+  test('blocked oid → per-object 404 in batch; sibling unaffected', async () => {
+    await batch('Alice/Repo', 'upload', oid); // pins prefix "Alice/Repo"
+    await objects().block([oid]);
+
+    const res = await batch('alice/repo', 'upload', oid);
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.objects[0].error.code).toBe(404);
+
+    const ok = await batch('alice/repo', 'upload', sibling);
+    const okBody = (await ok.json()) as any;
+    expect(okBody.objects[0]).toHaveProperty('actions.upload');
+  });
+
+  test('unblock restores the object', async () => {
+    await batch('Alice/Repo', 'upload', oid);
+    await objects().block([oid]);
+    await objects().unblock([oid]);
+    await env.LFS_BUCKET.put(`Alice/Repo/${oid}`, 'abc');
+
+    const res = await batch('alice/repo', 'download', oid);
+    const body = (await res.json()) as any;
+    expect(body.objects[0]).toHaveProperty('actions.download');
+  });
+
+  test('blocked oid → 404 on verify', async () => {
+    await batch('Alice/Repo', 'upload', oid);
+    await objects().block([oid]);
+    expect((await verify('alice/repo', oid)).status).toBe(404);
+  });
+
+  test('repo-level block overrides per-oid state on verify', async () => {
+    await batch('Alice/Repo', 'upload', oid); // pin row
+    await registry().block('alice', 'repo');
+    expect((await verify('alice/repo', sibling)).status).toBe(404);
   });
 });

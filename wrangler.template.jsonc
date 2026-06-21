@@ -29,8 +29,8 @@
   "durable_objects": {
     "bindings": [
       {
-        "name": "LOCKS",
-        "class_name": "Locks",
+        "name": "OBJECTS",
+        "class_name": "Objects",
       },
       {
         "name": "REPOS",
@@ -49,6 +49,10 @@
     {
       "tag": "v3",
       "new_sqlite_classes": ["Repos"],
+    },
+    {
+      "tag": "v4",
+      "renamed_classes": [{ "from": "Locks", "to": "Objects" }],
     },
   ],
   "workflows": [

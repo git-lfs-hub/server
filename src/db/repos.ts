@@ -6,9 +6,13 @@ import { repos, CURRENT_VER, RepoState } from './repos-schema';
 
 // Singleton registry (addressed `getByName("global")`): one `repos` row per
 // repo, keyed by lowercase (owner, repo), pinning a canonical `name` — the R2
-// key prefix and LOCKS DO name. Every case variant of a request maps to the
-// same row and converges on one prefix / one lock DO.
+// key prefix and OBJECTS DO name. Every case variant of a request maps to the
+// same row and converges on one prefix / one Objects DO.
 export class Repos extends DurableObject {
+  static global(env: CloudflareBindings) {
+    return env.REPOS.getByName('global');
+  }
+
   private db: DrizzleSqliteDODatabase;
 
   constructor(ctx: DurableObjectState, env: CloudflareBindings) {

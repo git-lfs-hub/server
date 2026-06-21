@@ -7,7 +7,7 @@ afterEach(async () => {
 });
 
 function repo() {
-  return env.LOCKS.getByName('owner/repo');
+  return env.OBJECTS.getByName('owner/repo');
 }
 
 // ---------------------------------------------------------------------------
@@ -16,7 +16,7 @@ function repo() {
 
 describe('create', () => {
   test('returns row with all fields populated', async () => {
-    const row = await repo().create('alice', 'file.bin');
+    const row = await repo().createLock('alice', 'file.bin');
     expect(typeof row.id).toBe('number');
     expect(row.uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
     expect(row.owner).toBe('alice');
@@ -25,14 +25,14 @@ describe('create', () => {
   });
 
   test('auto-increments id across multiple creates', async () => {
-    const a = await repo().create('alice', 'a.bin');
-    const b = await repo().create('alice', 'b.bin');
+    const a = await repo().createLock('alice', 'a.bin');
+    const b = await repo().createLock('alice', 'b.bin');
     expect(b.id).toBeGreaterThan(a.id);
   });
 
   test('throws on duplicate path', async () => {
-    await repo().create('alice', 'file.bin');
-    await expect(() => repo().create('bob', 'file.bin')).rejects.toThrow();
+    await repo().createLock('alice', 'file.bin');
+    await expect(() => repo().createLock('bob', 'file.bin')).rejects.toThrow();
   });
 });
 
@@ -42,13 +42,13 @@ describe('create', () => {
 
 describe('getByPath', () => {
   test('returns the lock when path exists', async () => {
-    const created = await repo().create('alice', 'file.bin');
-    const found = await repo().getByPath('file.bin');
+    const created = await repo().createLock('alice', 'file.bin');
+    const found = await repo().lockByPath('file.bin');
     expect(found?.uuid).toBe(created.uuid);
   });
 
   test('returns undefined when path does not exist', async () => {
-    expect(await repo().getByPath('missing.bin')).toBeUndefined();
+    expect(await repo().lockByPath('missing.bin')).toBeUndefined();
   });
 });
 
@@ -58,14 +58,14 @@ describe('getByPath', () => {
 
 describe('getById', () => {
   test('returns the lock when uuid exists', async () => {
-    const created = await repo().create('alice', 'file.bin');
-    const found = await repo().getById(created.uuid);
+    const created = await repo().createLock('alice', 'file.bin');
+    const found = await repo().lockById(created.uuid);
     expect(found?.id).toBe(created.id);
     expect(found?.path).toBe('file.bin');
   });
 
   test('returns null when uuid does not exist', async () => {
-    expect(await repo().getById('00000000-0000-0000-0000-000000000000')).toBeNull();
+    expect(await repo().lockById('00000000-0000-0000-0000-000000000000')).toBeNull();
   });
 });
 
@@ -75,9 +75,9 @@ describe('getById', () => {
 
 describe('list', () => {
   test('returns all locks ordered by id', async () => {
-    const a = await repo().create('alice', 'a.bin');
-    const b = await repo().create('bob', 'b.bin');
-    const rows = await repo().list({
+    const a = await repo().createLock('alice', 'a.bin');
+    const b = await repo().createLock('bob', 'b.bin');
+    const rows = await repo().listLocks({
       uuidFilter: null,
       pathFilter: null,
       cursor: null,
@@ -89,10 +89,10 @@ describe('list', () => {
   });
 
   test('respects limit', async () => {
-    await repo().create('alice', 'a.bin');
-    await repo().create('alice', 'b.bin');
-    await repo().create('alice', 'c.bin');
-    const rows = await repo().list({
+    await repo().createLock('alice', 'a.bin');
+    await repo().createLock('alice', 'b.bin');
+    await repo().createLock('alice', 'c.bin');
+    const rows = await repo().listLocks({
       uuidFilter: null,
       pathFilter: null,
       cursor: null,
@@ -102,9 +102,9 @@ describe('list', () => {
   });
 
   test('filters by uuid', async () => {
-    const a = await repo().create('alice', 'a.bin');
-    await repo().create('alice', 'b.bin');
-    const rows = await repo().list({
+    const a = await repo().createLock('alice', 'a.bin');
+    await repo().createLock('alice', 'b.bin');
+    const rows = await repo().listLocks({
       uuidFilter: a.uuid,
       pathFilter: null,
       cursor: null,
@@ -115,9 +115,9 @@ describe('list', () => {
   });
 
   test('filters by path', async () => {
-    await repo().create('alice', 'a.bin');
-    await repo().create('alice', 'b.bin');
-    const rows = await repo().list({
+    await repo().createLock('alice', 'a.bin');
+    await repo().createLock('alice', 'b.bin');
+    const rows = await repo().listLocks({
       uuidFilter: null,
       pathFilter: 'a.bin',
       cursor: null,
@@ -128,10 +128,10 @@ describe('list', () => {
   });
 
   test('cursor returns locks with id >= cursor', async () => {
-    await repo().create('alice', 'a.bin');
-    const b = await repo().create('alice', 'b.bin');
-    const c = await repo().create('alice', 'c.bin');
-    const rows = await repo().list({
+    await repo().createLock('alice', 'a.bin');
+    const b = await repo().createLock('alice', 'b.bin');
+    const c = await repo().createLock('alice', 'c.bin');
+    const rows = await repo().listLocks({
       uuidFilter: null,
       pathFilter: null,
       cursor: b.id,
@@ -141,11 +141,11 @@ describe('list', () => {
   });
 
   test('cursor works correctly when cursor lock is deleted', async () => {
-    await repo().create('alice', 'a.bin');
-    const b = await repo().create('alice', 'b.bin');
-    const c = await repo().create('alice', 'c.bin');
-    await repo().delete(b.uuid);
-    const rows = await repo().list({
+    await repo().createLock('alice', 'a.bin');
+    const b = await repo().createLock('alice', 'b.bin');
+    const c = await repo().createLock('alice', 'c.bin');
+    await repo().deleteLock(b.uuid);
+    const rows = await repo().listLocks({
       uuidFilter: null,
       pathFilter: null,
       cursor: b.id,
@@ -155,7 +155,7 @@ describe('list', () => {
   });
 
   test('returns empty array when no locks exist', async () => {
-    const rows = await repo().list({
+    const rows = await repo().listLocks({
       uuidFilter: null,
       pathFilter: null,
       cursor: null,
@@ -171,20 +171,22 @@ describe('list', () => {
 
 describe('delete', () => {
   test('removes the lock', async () => {
-    const lock = await repo().create('alice', 'file.bin');
-    await repo().delete(lock.uuid);
-    expect(await repo().getById(lock.uuid)).toBeNull();
+    const lock = await repo().createLock('alice', 'file.bin');
+    await repo().deleteLock(lock.uuid);
+    expect(await repo().lockById(lock.uuid)).toBeNull();
   });
 
   test('is a no-op for unknown uuid', async () => {
-    await expect(repo().delete('00000000-0000-0000-0000-000000000000')).resolves.toBeUndefined();
+    await expect(
+      repo().deleteLock('00000000-0000-0000-0000-000000000000'),
+    ).resolves.toBeUndefined();
   });
 
   test('does not remove other locks', async () => {
-    const a = await repo().create('alice', 'a.bin');
-    const b = await repo().create('alice', 'b.bin');
-    await repo().delete(a.uuid);
-    expect(await repo().getById(b.uuid)).not.toBeNull();
+    const a = await repo().createLock('alice', 'a.bin');
+    const b = await repo().createLock('alice', 'b.bin');
+    await repo().deleteLock(a.uuid);
+    expect(await repo().lockById(b.uuid)).not.toBeNull();
   });
 });
 
@@ -199,8 +201,8 @@ describe('delete', () => {
 describe('purge', () => {
   test('drops the entire DO — no rows and no table left', async () => {
     const stub = repo();
-    await stub.create('alice', 'a.bin');
-    await stub.create('alice', 'b.bin');
+    await stub.createLock('alice', 'a.bin');
+    await stub.createLock('alice', 'b.bin');
     await stub.purge();
     await runInDurableObject(stub, (_instance, state) => {
       const tables = state.storage.sql
@@ -213,5 +215,53 @@ describe('purge', () => {
   test('is idempotent on an empty repo', async () => {
     await expect(repo().purge()).resolves.toBeUndefined();
     await expect(repo().purge()).resolves.toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// block / unblock / isBlocked / purgeBlocked (per-object soft-delete)
+// ---------------------------------------------------------------------------
+
+describe('blocked', () => {
+  const oid = 'a'.repeat(64);
+  const other = 'b'.repeat(64);
+
+  test('isBlocked is false for an unblocked oid', async () => {
+    expect(await repo().isBlocked(oid)).toBe(false);
+  });
+
+  test('block flips isBlocked true for listed oids only', async () => {
+    await repo().block([oid]);
+    expect(await repo().isBlocked(oid)).toBe(true);
+    expect(await repo().isBlocked(other)).toBe(false);
+  });
+
+  test('block is idempotent', async () => {
+    await repo().block([oid]);
+    await expect(repo().block([oid])).resolves.toBeUndefined();
+    expect(await repo().isBlocked(oid)).toBe(true);
+  });
+
+  test('unblock clears the block, leaving siblings', async () => {
+    await repo().block([oid, other]);
+    await repo().unblock([oid]);
+    expect(await repo().isBlocked(oid)).toBe(false);
+    expect(await repo().isBlocked(other)).toBe(true);
+  });
+
+  test('purgeBlocked drops rows', async () => {
+    await repo().block([oid]);
+    await repo().purgeBlocked([oid]);
+    expect(await repo().isBlocked(oid)).toBe(false);
+  });
+
+  test('empty oid lists are no-ops', async () => {
+    await expect(repo().block([])).resolves.toBeUndefined();
+    await expect(repo().unblock([])).resolves.toBeUndefined();
+  });
+
+  test('blocks are scoped to the DO instance (prefix)', async () => {
+    await repo().block([oid]);
+    expect(await env.OBJECTS.getByName('other/repo').isBlocked(oid)).toBe(false);
   });
 });

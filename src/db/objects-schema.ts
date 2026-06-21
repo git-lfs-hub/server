@@ -7,3 +7,9 @@ export const locks = sqliteTable('locks', {
   locked_at: text('locked_at').notNull(),
   owner: text('owner').notNull(),
 });
+
+// Per-object soft-delete, scoped to this DO's prefix (the DO instance == prefix,
+// so no prefix column). A present row → that OID serves 404.
+export const blocked = sqliteTable('blocked', {
+  oid: text('oid').primaryKey(),
+});

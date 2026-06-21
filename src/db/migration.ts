@@ -1,5 +1,7 @@
 import { WorkflowEntrypoint, WorkflowEvent, WorkflowStep } from 'cloudflare:workers';
 
+import { Repos } from './repos';
+
 // -----------------------------------------------------------------------------
 // One-off data migrations, run as a Cloudflare Workflow. Durable execution is
 // the guard: an instance runs to completion and stops — no perpetual loop, no
@@ -35,7 +37,7 @@ type Step = Pick<WorkflowStep, 'do'>;
 
 export async function v1(env: CloudflareBindings, step: Step): Promise<void> {
   const VER = 1;
-  const registry = env.REPOS.getByName('global');
+  const registry = Repos.global(env);
 
   // Each stored prefix is one case of a repo. Pin `name` from it via the same
   // resolveName objects/locks resolve through — first-writer-wins, so a repo

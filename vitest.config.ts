@@ -1,10 +1,22 @@
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { cloudflareTest } from '@cloudflare/vitest-pool-workers';
 import { defineConfig } from 'vitest/config';
+
+// The node `unit` project can't resolve the `cloudflare:workers` virtual module,
+// so modules that extend its base classes (DOs, entrypoints) fail to import. Alias
+// it to a no-op stub for import-only unit tests; workers-pool projects are unaffected.
+const here = dirname(fileURLToPath(import.meta.url));
+const workersStub = resolve(here, 'src/test/cloudflare-workers-stub.ts');
 
 export default defineConfig({
   test: {
     projects: [
       {
+        resolve: {
+          alias: { 'cloudflare:workers': workersStub },
+        },
         test: {
           name: 'unit',
           include: ['src/**/*.spec.ts', 'dev/**/*.spec.ts'],
