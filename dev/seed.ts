@@ -34,6 +34,10 @@ const FIXTURES: { owner: string; repo: string; files: FileSpec[] }[] = [
       { seed: 'font-bold', size: 4096 },
       { seed: 'font-regular', size: 3072 },
       { seed: 'bg-image', size: 8192 },
+      // Branch-unique blobs (see admin dev/mock-github WEBAPP_BRANCHES): each referenced by exactly
+      // one feature branch, so deleting that branch in the admin UI orphans → blocks a real object.
+      { seed: 'release-notes', size: 4096 },
+      { seed: 'prototype-asset', size: 2048 },
     ],
   },
   {
