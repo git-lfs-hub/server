@@ -38,6 +38,10 @@ const FIXTURES: { owner: string; repo: string; files: FileSpec[] }[] = [
       // one feature branch, so deleting that branch in the admin UI orphans → blocks a real object.
       { seed: 'release-notes', size: 4096 },
       { seed: 'prototype-asset', size: 2048 },
+      // Referenced only by seeded non-active branches (admin dev/seed-branches): `legacy-blob` by the
+      // `deleted` branch (→ blocked), `wip-asset` by an impactful `missing` branch (→ reclaimable).
+      { seed: 'legacy-blob', size: 2048 },
+      { seed: 'wip-asset', size: 3072 },
     ],
   },
   {
