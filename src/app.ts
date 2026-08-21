@@ -12,7 +12,7 @@ export type AppEnv = {
   // Consumers (GithubApi, resolveSession) already accept an undefined cache.
   Bindings: CloudflareBindings & { GITHUB_CACHE?: KVNamespace };
   Variables: {
-    user: string;
+    user: string | null; // null for a machine caller (App installation token)
     access: 'read' | 'write';
     objects: ObjectsStorage;
   };

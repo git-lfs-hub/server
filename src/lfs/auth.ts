@@ -22,14 +22,13 @@ export const authMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
     return c.json(DENY, 401, DENY_HEADERS);
   }
 
+  // The path segments are an LFS namespace, not the repo's location — `callerAccess` resolves
+  // them through GitHub, and a machine caller has no `GET /user` identity to gate on.
   const api = new GithubApi(headerAuth.token, c.env.GITHUB_CACHE);
-  const username = await api.authenticatedUsername();
-  if (!username) return c.json(DENY, 401, DENY_HEADERS);
-
-  const access = await api.repoAccess(owner, repo);
+  const access = await api.callerAccess(owner, repo);
   if (!access) return c.json(DENY, 401, DENY_HEADERS);
 
-  c.set('user', username);
+  c.set('user', await api.authenticatedUsername());
   c.set('access', access);
 
   await next();
