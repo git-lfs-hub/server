@@ -11,7 +11,7 @@ const LFS = {
 };
 
 const mockState = vi.hoisted(() => ({
-  login: 'alice',
+  login: 'alice' as string | null,
   push: true,
 }));
 
@@ -21,7 +21,7 @@ vi.mock('@git-lfs-hub/lib/github', () => ({
     async authenticatedUsername() {
       return mockState.login;
     }
-    async repoAccess() {
+    async callerAccess() {
       return mockState.push ? 'write' : 'read';
     }
   },
@@ -63,6 +63,16 @@ describe('lfsApi objects middleware (ObjectsStorage init)', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as any;
     expect(body.objects).toHaveLength(1);
+  });
+});
+
+describe('machine caller', () => {
+  test('an App token with no user identity can request an upload', async () => {
+    mockState.login = null;
+    const res = await batch('alice/repo', 'upload', 'c'.repeat(64));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as any;
+    expect(body.objects[0]).toHaveProperty('actions.upload');
   });
 });
 

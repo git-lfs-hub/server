@@ -26,6 +26,8 @@ locksApi.post(
     }
     const body = c.req.valid('json');
     const user = c.get('user');
+    // A lock owner is a human login; a machine caller has none to hold one under.
+    if (!user) return c.json({ message: 'Locks require a user identity' }, 403);
     const stub = await getLocksStub(c);
     const existing = await stub.getByPath(body.path);
     if (existing) {

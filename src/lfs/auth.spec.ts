@@ -11,8 +11,10 @@ const mockState = {
   authenticated: true,
   hasRepoAccess: true,
   hasWriteAccess: true,
-  githubLogin: 'alice',
+  githubLogin: 'alice' as string | null,
 };
+
+const callerAccess = vi.fn();
 
 vi.mock('@git-lfs-hub/lib/github', () => ({
   GithubApi: class {
@@ -20,7 +22,8 @@ vi.mock('@git-lfs-hub/lib/github', () => ({
     async authenticatedUsername() {
       return mockState.authenticated ? mockState.githubLogin : null;
     }
-    async repoAccess() {
+    async callerAccess(owner: string, repo: string, projectsOrgs?: string[]) {
+      callerAccess(owner, repo, projectsOrgs);
       if (!mockState.hasRepoAccess) return null;
       return mockState.hasWriteAccess ? 'write' : 'read';
     }
@@ -33,7 +36,9 @@ const { authMiddleware } = await import('./auth');
 // authMiddleware — HTTP-level tests via Hono's app.request()
 // ---------------------------------------------------------------------------
 
-const TEST_ENV = { GITHUB_ORG: 'TestOrg' } as unknown as CloudflareBindings;
+const TEST_ENV = {
+  GITHUB_ORG: 'TestOrg',
+} as unknown as CloudflareBindings;
 
 function makeApp() {
   const hono = new Hono<AppEnv>();
@@ -59,6 +64,7 @@ describe('authMiddleware', () => {
     mockState.hasRepoAccess = true;
     mockState.hasWriteAccess = true;
     mockState.githubLogin = 'alice';
+    callerAccess.mockClear();
   });
 
   describe('401 responses', () => {
@@ -81,15 +87,7 @@ describe('authMiddleware', () => {
       expect(res.status).toBe(401);
     });
 
-    test('rejects when GitHub says token is invalid', async () => {
-      mockState.authenticated = false;
-      const res = await app.request(REPO_URL, {
-        headers: { Authorization: basic('alice', 'bad-token') },
-      });
-      expect(res.status).toBe(401);
-    });
-
-    test('rejects when GitHub says no read access to repo', async () => {
+    test('rejects when GitHub grants the token no access to the repo', async () => {
       mockState.hasRepoAccess = false;
       const res = await app.request(REPO_URL, {
         headers: { Authorization: basic('alice', 'valid-token') },
@@ -154,6 +152,25 @@ describe('authMiddleware', () => {
         headers: { Authorization: basic('alice', 'ghp_valid_token') },
       });
       expect(((await res.json()) as any).access).toBe('read');
+    });
+
+    test('accepts a machine caller and leaves user null', async () => {
+      mockState.githubLogin = null;
+      const res = await app.request(REPO_URL, {
+        headers: { Authorization: basic('x-access-token', 'ghs_app_token') },
+      });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as any;
+      expect(body.user).toBeNull();
+      expect(body.access).toBe('write');
+    });
+
+    // An LFS upload is the caller pushing its own bytes, so push is the whole bar.
+    test('passes the namespace to callerAccess with no projects-org gate', async () => {
+      await app.request('http://w/lfs/alice/repo.git/', {
+        headers: { Authorization: basic('alice', 'ghp_valid_token') },
+      });
+      expect(callerAccess).toHaveBeenCalledWith('alice', 'repo', undefined);
     });
   });
 });

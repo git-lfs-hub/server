@@ -11,7 +11,7 @@ import { Hono } from 'hono';
 import type { AppEnv } from '../../src/app';
 import { locksApi } from '../../src/lfs/locks';
 
-function makeApp(user: string, access: 'read' | 'write' = 'write') {
+function makeApp(user: string | null, access: 'read' | 'write' = 'write') {
   const app = new Hono<AppEnv>();
   app.use('*', async (c, next) => {
     c.set('user', user);
@@ -56,6 +56,20 @@ describe('createLockHandler', () => {
     expect(body.lock.owner.name).toBe('alice');
     expect(typeof body.lock.id).toBe('string');
     expect(body.lock.locked_at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/);
+  });
+
+  test('403 for a machine caller, which has no login to own the lock', async () => {
+    const res = await makeApp(null).request(
+      'http://w/lfs/alice/repo/locks',
+      {
+        method: 'POST',
+        headers: LFS,
+        body: JSON.stringify({ path: 'file.bin' }),
+      },
+      env,
+    );
+    expect(res.status).toBe(403);
+    expect(await locksStub('alice/repo').getByPath('file.bin')).toBeFalsy();
   });
 
   test('409 when path already locked in same repo', async () => {
