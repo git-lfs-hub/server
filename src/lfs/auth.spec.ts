@@ -12,9 +12,13 @@ const mockState = {
   hasRepoAccess: true,
   hasWriteAccess: true,
   githubLogin: 'alice' as string | null,
+  // When set, only these owners grant write — the org-map shape, where prod is denied.
+  writeOwners: null as string[] | null,
+  lfsLinks: {} as Record<string, string>,
 };
 
 const callerAccess = vi.fn();
+const declaredLfsPrefix = vi.fn();
 
 vi.mock('@git-lfs-hub/lib/github', () => ({
   GithubApi: class {
@@ -24,8 +28,13 @@ vi.mock('@git-lfs-hub/lib/github', () => ({
     }
     async callerAccess(owner: string, repo: string, projectsOrgs?: string[]) {
       callerAccess(owner, repo, projectsOrgs);
+      if (mockState.writeOwners) return mockState.writeOwners.includes(owner) ? 'write' : null;
       if (!mockState.hasRepoAccess) return null;
       return mockState.hasWriteAccess ? 'write' : 'read';
+    }
+    async declaredLfsPrefix(owner: string, repo: string, host: string) {
+      declaredLfsPrefix(owner, repo, host);
+      return mockState.lfsLinks[`${owner}/${repo}`] ?? null;
     }
   },
 }));
@@ -38,7 +47,10 @@ const { authMiddleware } = await import('./auth');
 
 const TEST_ENV = {
   GITHUB_ORG: 'TestOrg',
+  GITHUB_ORGS_MAP: '',
 } as unknown as CloudflareBindings;
+// `wrangler types` types each var as the literal in wrangler.jsonc; tests need to vary this one.
+const testVars = TEST_ENV as unknown as { GITHUB_ORGS_MAP: string };
 
 function makeApp() {
   const hono = new Hono<AppEnv>();
@@ -64,7 +76,11 @@ describe('authMiddleware', () => {
     mockState.hasRepoAccess = true;
     mockState.hasWriteAccess = true;
     mockState.githubLogin = 'alice';
+    mockState.writeOwners = null;
+    mockState.lfsLinks = {};
+    testVars.GITHUB_ORGS_MAP = '';
     callerAccess.mockClear();
+    declaredLfsPrefix.mockClear();
   });
 
   describe('401 responses', () => {
@@ -171,6 +187,106 @@ describe('authMiddleware', () => {
         headers: { Authorization: basic('alice', 'ghp_valid_token') },
       });
       expect(callerAccess).toHaveBeenCalledWith('alice', 'repo', undefined);
+    });
+  });
+
+  // A staging fork whose `.lfsconfig` still names prod, pushing with a staging-only token.
+  describe('GITHUB_ORGS_MAP', () => {
+    const PROD_URL = 'http://w/lfs/prod/hub/';
+    const auth = { headers: { Authorization: basic('x-access-token', 'ghs_staging_token') } };
+
+    function stagingPushesToProd() {
+      mockState.writeOwners = ['staging'];
+      mockState.lfsLinks = { 'staging/hub': 'prod/hub' };
+      testVars.GITHUB_ORGS_MAP = 'staging=prod';
+    }
+
+    test('grants write on the target namespace', async () => {
+      stagingPushesToProd();
+      const res = await app.request(PROD_URL, auth);
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as any).access).toBe('write');
+    });
+
+    test('checks the link against the request host', async () => {
+      stagingPushesToProd();
+      await app.request(PROD_URL, auth);
+      expect(declaredLfsPrefix).toHaveBeenCalledWith('staging', 'hub', 'w');
+    });
+
+    test('rejects when the map is unset', async () => {
+      stagingPushesToProd();
+      testVars.GITHUB_ORGS_MAP = '';
+      const res = await app.request(PROD_URL, auth);
+      expect(res.status).toBe(401);
+      expect(declaredLfsPrefix).not.toHaveBeenCalled();
+    });
+
+    test('rejects when the source repo has no .lfsconfig', async () => {
+      stagingPushesToProd();
+      mockState.lfsLinks = {};
+      expect((await app.request(PROD_URL, auth)).status).toBe(401);
+    });
+
+    test('rejects when the .lfsconfig names another prefix', async () => {
+      stagingPushesToProd();
+      mockState.lfsLinks = { 'staging/hub': 'prod/other' };
+      expect((await app.request(PROD_URL, auth)).status).toBe(401);
+    });
+
+    test('rejects when the caller cannot push to the source repo', async () => {
+      stagingPushesToProd();
+      mockState.writeOwners = [];
+      expect((await app.request(PROD_URL, auth)).status).toBe(401);
+    });
+
+    test('is one-way: the target org gets no grant in the source namespace', async () => {
+      mockState.writeOwners = ['prod'];
+      mockState.lfsLinks = { 'prod/hub': 'staging/hub' };
+      testVars.GITHUB_ORGS_MAP = 'staging=prod';
+      const res = await app.request('http://w/lfs/staging/hub/', {
+        headers: { Authorization: basic('x-access-token', 'ghs_prod_token') },
+      });
+      expect(res.status).toBe(401);
+      expect(declaredLfsPrefix).not.toHaveBeenCalled();
+    });
+
+    test('ignores entries pointing at another target', async () => {
+      stagingPushesToProd();
+      testVars.GITHUB_ORGS_MAP = 'staging=elsewhere';
+      const res = await app.request(PROD_URL, auth);
+      expect(res.status).toBe(401);
+      expect(declaredLfsPrefix).not.toHaveBeenCalled();
+    });
+
+    test('ignores an entry mapping an org to itself', async () => {
+      stagingPushesToProd();
+      testVars.GITHUB_ORGS_MAP = 'prod=prod';
+      const res = await app.request(PROD_URL, auth);
+      expect(res.status).toBe(401);
+      expect(declaredLfsPrefix).not.toHaveBeenCalled();
+    });
+
+    test('costs nothing when the caller already has push on the target', async () => {
+      stagingPushesToProd();
+      mockState.writeOwners = ['prod', 'staging'];
+      const res = await app.request(PROD_URL, auth);
+      expect(res.status).toBe(200);
+      expect(declaredLfsPrefix).not.toHaveBeenCalled();
+    });
+
+    // The grouped map is memoized per isolate, keyed by the raw var.
+    test('picks up a changed map without a restart', async () => {
+      stagingPushesToProd();
+      expect((await app.request(PROD_URL, auth)).status).toBe(200);
+      testVars.GITHUB_ORGS_MAP = 'staging=elsewhere';
+      expect((await app.request(PROD_URL, auth)).status).toBe(401);
+    });
+
+    test('throws on more than five map entries', async () => {
+      stagingPushesToProd();
+      testVars.GITHUB_ORGS_MAP = 'a=prod b=prod c=prod d=prod e=prod f=prod';
+      expect((await app.request(PROD_URL, auth)).status).toBe(500);
     });
   });
 });

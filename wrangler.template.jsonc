@@ -87,6 +87,9 @@
     "GITHUB_ORG": "{{github.org}}",
     // Optional: one or more owner/org slugs (alternative to GITHUB_ORG for multi-org setups).
     "GITHUB_ORGS": "{{github.orgs}}",
+    // Optional: one-way "source=target" org pairs. A source repo may push into the target's
+    // LFS namespace when its .lfsconfig names it. Storage write only, never GitHub access.
+    "GITHUB_ORGS_MAP": "{{github.orgsMap}}",
     // Optional: single GitHub login for personal-account (user) mode.
     "GITHUB_USER": "{{github.user}}",
     // Optional: Sentry organization slug for error tracking.
