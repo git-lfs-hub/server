@@ -14,6 +14,7 @@ const mockState = {
   githubLogin: 'alice' as string | null,
   // When set, only these owners grant write — the org-map shape, where prod is denied.
   writeOwners: null as string[] | null,
+  readOwners: [] as string[],
   lfsLinks: {} as Record<string, string>,
 };
 
@@ -28,7 +29,10 @@ vi.mock('@git-lfs-hub/lib/github', () => ({
     }
     async callerAccess(owner: string, repo: string, projectsOrgs?: string[]) {
       callerAccess(owner, repo, projectsOrgs);
-      if (mockState.writeOwners) return mockState.writeOwners.includes(owner) ? 'write' : null;
+      if (mockState.writeOwners) {
+        if (mockState.writeOwners.includes(owner)) return 'write';
+        return mockState.readOwners.includes(owner) ? 'read' : null;
+      }
       if (!mockState.hasRepoAccess) return null;
       return mockState.hasWriteAccess ? 'write' : 'read';
     }
@@ -77,6 +81,7 @@ describe('authMiddleware', () => {
     mockState.hasWriteAccess = true;
     mockState.githubLogin = 'alice';
     mockState.writeOwners = null;
+    mockState.readOwners = [];
     mockState.lfsLinks = {};
     testVars.GITHUB_ORGS_MAP = '';
     callerAccess.mockClear();
@@ -181,6 +186,16 @@ describe('authMiddleware', () => {
       expect(body.access).toBe('write');
     });
 
+    test("accepts a read-only machine caller with 'read' access", async () => {
+      mockState.githubLogin = null;
+      mockState.hasWriteAccess = false;
+      const res = await app.request(REPO_URL, {
+        headers: { Authorization: basic('x-access-token', 'ghs_app_token') },
+      });
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as any).access).toBe('read');
+    });
+
     // An LFS upload is the caller pushing its own bytes, so push is the whole bar.
     test('passes the namespace to callerAccess with no projects-org gate', async () => {
       await app.request('http://w/lfs/alice/repo.git/', {
@@ -234,10 +249,34 @@ describe('authMiddleware', () => {
       expect((await app.request(PROD_URL, auth)).status).toBe(401);
     });
 
-    test('rejects when the caller cannot push to the source repo', async () => {
+    test('rejects when the caller has no access to the source repo', async () => {
       stagingPushesToProd();
       mockState.writeOwners = [];
       expect((await app.request(PROD_URL, auth)).status).toBe(401);
+    });
+
+    test('grants read on the target namespace to a source-repo reader', async () => {
+      stagingPushesToProd();
+      mockState.writeOwners = [];
+      mockState.readOwners = ['staging'];
+      const res = await app.request(PROD_URL, auth);
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as any).access).toBe('read');
+    });
+
+    test('a source-repo reader gets no read without the .lfsconfig link', async () => {
+      stagingPushesToProd();
+      mockState.writeOwners = [];
+      mockState.readOwners = ['staging'];
+      mockState.lfsLinks = {};
+      expect((await app.request(PROD_URL, auth)).status).toBe(401);
+    });
+
+    test('source write wins over direct read on the target', async () => {
+      stagingPushesToProd();
+      mockState.readOwners = ['prod'];
+      const res = await app.request(PROD_URL, auth);
+      expect(((await res.json()) as any).access).toBe('write');
     });
 
     test('is one-way: the target org gets no grant in the source namespace', async () => {

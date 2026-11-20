@@ -95,6 +95,9 @@ objectsApi.post(
     if (!r.success) return c.json({ message: 'Invalid request' }, 422);
   }),
   async (c) => {
+    if (c.get('access') !== 'write') {
+      return c.json({ message: 'You must have push access to verify this object' }, 403);
+    }
     const body = c.req.valid('json');
     const key = `${await resolveName(c)}/${body.oid}`;
     const owner = c.req.param('owner')!;
