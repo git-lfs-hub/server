@@ -20,9 +20,10 @@ const testCtx = {
   passThroughOnException: () => {},
 } as unknown as ExecutionContext;
 
-function makeApp(objects: Record<string, number> = {}) {
+function makeApp(objects: Record<string, number> = {}, access: 'read' | 'write' = 'write') {
   const app = new Hono<AppEnv>();
   app.use('/lfs/:owner/:repo/*', (c, next) => {
+    c.set('access', access);
     c.set('objects', {
       verifyObject: async (key: string, size?: number) => {
         if (!(key in objects)) return { message: 'Object not found' };
@@ -58,6 +59,22 @@ describe('verifyHandler', () => {
       testCtx,
     );
     expect(res.status).toBe(200);
+  });
+
+  test('403 for a read-only caller, without enqueueing', async () => {
+    const env = makeEnv();
+    const res = await makeApp({ 'alice/repo/abc123': 42 }, 'read').request(
+      'http://worker/lfs/alice/repo/objects/verify',
+      {
+        method: 'POST',
+        headers: LFS_HEADERS,
+        body: JSON.stringify({ oid: 'abc123', size: 42 }),
+      },
+      env,
+      testCtx,
+    );
+    expect(res.status).toBe(403);
+    expect(env.OBJECT_EVENTS.send).not.toHaveBeenCalled();
   });
 
   test('422 when object does not exist', async () => {

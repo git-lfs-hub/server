@@ -35,8 +35,8 @@ export const authMiddleware: MiddlewareHandler<AppEnv> = async (c, next) => {
   await next();
 };
 
-/** `GITHUB_ORGS_MAP` lets a mapped source org push into the target's LFS namespace when its
- *  `.lfsconfig` names it. Write on this server's storage only — no GitHub access to `owner`. */
+/** `GITHUB_ORGS_MAP` lends a mapped source repo's access to the target's LFS namespace when its
+ *  `.lfsconfig` names it. This server's storage only — no GitHub access to `owner`. */
 async function mappedAccess(
   api: GithubApi,
   owner: string,
@@ -58,10 +58,14 @@ async function mappedAccess(
       api.declaredLfsPrefix(src, repo, host).then((p) => (p === want ? src : null)),
     ),
   );
+  let best = direct;
   for (const src of linked) {
-    if (src && (await api.callerAccess(src, repo)) === 'write') return 'write';
+    if (!src) continue;
+    const access = await api.callerAccess(src, repo);
+    if (access === 'write') return access;
+    best ??= access;
   }
-  return direct;
+  return best;
 }
 
 let orgsMap: { raw?: string; byTarget: Map<string, string[]> } | null = null;
